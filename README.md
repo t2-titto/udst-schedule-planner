@@ -1,10 +1,10 @@
 # UDST Schedule & Degree Planner
 
-A fast, local-only schedule and degree planner for UDST students. Runs entirely on `http://localhost:8787` on your own Windows PC — **no admin rights required**, **no third-party servers**, and **writes to PeopleSoft are OFF by default** until you explicitly review and click Apply.
+A fast, local-only schedule and degree planner for UDST students. Runs entirely on `http://localhost:6767` on your own Windows PC — **no admin rights required**, **no third-party servers**, and **writes to PeopleSoft are OFF by default** until you explicitly review and click Apply.
 
 ## One-Line Install (Windows, No Admin)
 
-Choose any of the three installers below (all share the same re-runnable logic and install into `C:\Users\<you>\AppData\Local\udst-schedule-planner`, build locally using official signed Rust tools so there are no unsigned `.exe` downloads, create a Desktop shortcut, and open `http://localhost:8787`):
+Choose any of the three installers below (all share the same re-runnable logic and install into `C:\Users\<you>\AppData\Local\udst-schedule-planner`, build locally using official signed Rust tools so there are no unsigned `.exe` downloads, create a Desktop shortcut, and open `http://localhost:6767`):
 
 ### Option 1: PowerShell (Recommended)
 ```powershell
@@ -54,7 +54,7 @@ $env:UDST_UPDATE = "1"; irm https://raw.githubusercontent.com/t2-titto/udst-sche
 | Newer version on GitHub | Downloaded, rebuilt and launched automatically (skipped if offline) |
 | Planner already running when a launch/update is requested | Just opens the running one; updates apply at the next start |
 | Planner already running | Launcher just opens your browser to it (no duplicate server) |
-| Port 8787 used by another program | Launcher automatically uses the next free port (8788-8796) and opens that URL |
+| Port 6767 used by another program | Launcher automatically uses the next free port (6768-6776) and opens that URL |
 | Updating while the server is running | Installer stops only this app's server first so the `.exe` isn't locked |
 | Installer started twice at once | Second one exits with a message |
 | Interrupted / corrupt download, half-extracted MinGW | Detected and re-downloaded on next run; downloads retry 3 times |
@@ -71,5 +71,5 @@ $env:UDST_UPDATE = "1"; irm https://raw.githubusercontent.com/t2-titto/udst-sche
 - **Built-in Tutorial:** Step-by-step walkthrough on first launch (and always available via **Tutorial** in the top bar).
 - **Smart Schedule Builder:** Ranks conflict-free schedules by preferred times, free days, and instructor scores; skips `Closed` swap options automatically.
 - **Degree Planner + Prerequisites & Co-requisites:** Drag courses across semesters with live 18/12-credit checks, prerequisite warnings, and one-click co-requisite pairing.
-- **Multi-Account Support:** Use **Switch account** or open `http://localhost:8787` in a private window for a completely separate session.
+- **Multi-Account Support:** Use **Switch account** or open `http://localhost:6767` in a private window for a completely separate session.
 - **Safe Apply:** One review screen with fresh seat checks before every write step.

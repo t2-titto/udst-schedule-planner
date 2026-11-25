@@ -303,7 +303,7 @@ fn creds_from_file(path: &str) -> Result<Creds, String> {
 
 #[tokio::main]
 async fn main() {
-    let port: u16 = std::env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(8787);
+    let port: u16 = std::env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(6767);
     let dist = PathBuf::from(std::env::var("PLANNER_DIST").unwrap_or_else(|_| "../frontend/dist".to_string()));
     let data_dir = PathBuf::from(std::env::var("PLANNER_DATA").unwrap_or_else(|_| "../data".to_string()));
     let log_path = match log::init(&data_dir.join("logs")) {

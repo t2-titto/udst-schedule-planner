@@ -9,7 +9,7 @@ $InstallDir = Split-Path -Parent $AppDir
 $Exe        = Join-Path $AppDir "server\target\release\schedule-planner-server.exe"
 $Launcher   = Join-Path $InstallDir "Start-UDST-Planner.bat"
 $Hotkey     = "CTRL+ALT+U"
-$Base       = 8787
+$Base       = 6767
 $Repo       = "t2-titto/udst-schedule-planner"
 
 function Ensure-Shortcuts {

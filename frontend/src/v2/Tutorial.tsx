@@ -13,7 +13,7 @@ export function markTutorialSeen(): void {
 const STEPS = [
   {
     title: '1. Private & Safe by Default',
-    body: 'This planner runs 100% locally on your computer (localhost:8787). Your UDST PeopleSoft credentials stay in memory only and are never saved to disk or sent to any third party. Writes to PeopleSoft stay OFF until you explicitly review and press Apply.',
+    body: 'This planner runs 100% locally on your computer (localhost:6767). Your UDST PeopleSoft credentials stay in memory only and are never saved to disk or sent to any third party. Writes to PeopleSoft stay OFF until you explicitly review and press Apply.',
   },
   {
     title: '2. Sign In & Load Your Term',
@@ -29,7 +29,7 @@ const STEPS = [
   },
   {
     title: '5. Review Before Applying & Switch Accounts',
-    body: 'Press "Apply" to see every swap, enrolment, and drop on one review screen with live seat checks before anything is sent to PeopleSoft. Need another account? Click "Switch account" or open http://localhost:8787 in a private window for a fresh session.',
+    body: 'Press "Apply" to see every swap, enrolment, and drop on one review screen with live seat checks before anything is sent to PeopleSoft. Need another account? Click "Switch account" or open http://localhost:6767 in a private window for a fresh session.',
   },
 ]
 
