@@ -1,0 +1,1649 @@
+{
+  "years": [
+    {
+      "index": 0,
+      "name": "910-901-R Year 1",
+      "summary": "Total Courses Required: 10 Completed: 100%",
+      "state": "Collapse"
+    },
+    {
+      "index": 1,
+      "name": "910-901-R Year 2",
+      "summary": "Total Courses Required: 10 Completed: 10%",
+      "state": "Collapse"
+    },
+    {
+      "index": 2,
+      "name": "910-901-R Year 3",
+      "summary": "Total Courses Required: 10 Completed: 0%",
+      "state": "Collapse"
+    },
+    {
+      "index": 3,
+      "name": "910-901-R Year 4",
+      "summary": "Total Courses Required: 9 Completed: 0%",
+      "state": "Collapse"
+    }
+  ],
+  "semesters": [
+    {
+      "index": 0,
+      "year": 0,
+      "name": "910-901-R Semester 1",
+      "summary": "Total Courses Required: 4 Completed: 100%"
+    },
+    {
+      "index": 1,
+      "year": 0,
+      "name": "910-901-R Semester 2",
+      "summary": "Total Courses Required: 4 Completed: 100%"
+    },
+    {
+      "index": 2,
+      "year": 0,
+      "name": "910-901-R Semester 3",
+      "summary": "Total Courses Required: 2 Completed: 100%"
+    },
+    {
+      "index": 3,
+      "year": 1,
+      "name": "910-901-R Semester 4",
+      "summary": "Total Courses Required: 4 Completed: 25%"
+    },
+    {
+      "index": 4,
+      "year": 1,
+      "name": "910-901-R Semester 5",
+      "summary": "Total Courses Required: 4 Completed: 0%"
+    },
+    {
+      "index": 5,
+      "year": 1,
+      "name": "910-901-R Semester 6",
+      "summary": "Total Courses Required: 2 Completed: 0%"
+    },
+    {
+      "index": 6,
+      "year": 2,
+      "name": "910-901-R Semester 7",
+      "summary": "Total Courses Required: 4 Completed: 0%"
+    },
+    {
+      "index": 7,
+      "year": 2,
+      "name": "910-901-R Semester 8",
+      "summary": "Total Courses Required: 4 Completed: 0%"
+    },
+    {
+      "index": 8,
+      "year": 2,
+      "name": "910-901-R Semester 9",
+      "summary": "Total Courses Required: 2 Completed: 0%"
+    },
+    {
+      "index": 9,
+      "year": 3,
+      "name": "910-901-R Semester 10",
+      "summary": "Total Courses Required: 4 Completed: 0%"
+    },
+    {
+      "index": 10,
+      "year": 3,
+      "name": "910-901-R Semester 11",
+      "summary": "Total Courses Required: 4 Completed: 0%"
+    },
+    {
+      "index": 11,
+      "year": 3,
+      "name": "910-902-R Semester 12",
+      "summary": "Total Courses Required: 1 Completed: 0%"
+    }
+  ],
+  "rows": [
+    {
+      "row": 0,
+      "year": 0,
+      "semester": 0,
+      "label": "COMM 1010: English Communication I",
+      "joined_by_and": false,
+      "code": "COMM 1010",
+      "title": "English Communication I",
+      "category": "Required",
+      "units": "3.00",
+      "term": "Fall 2025",
+      "term_choice": null,
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 1,
+      "year": 0,
+      "semester": 0,
+      "label": "INFS 1101: Intro to Comp & Prob Solving",
+      "joined_by_and": true,
+      "code": "INFS 1101",
+      "title": "Intro to Comp & Prob Solving",
+      "category": "Required",
+      "units": "3.00",
+      "term": "Fall 2025",
+      "term_choice": null,
+      "has_select": false,
+      "has_requirement": false
+    },
+    {
+      "row": 2,
+      "year": 0,
+      "semester": 0,
+      "label": "910-901-R Semester 1 - EFFL Course List",
+      "joined_by_and": true,
+      "code": "",
+      "title": "910-901-R Semester 1 - EFFL Course List",
+      "category": "Required",
+      "units": null,
+      "term": null,
+      "term_choice": null,
+      "has_select": true,
+      "has_requirement": false
+    },
+    {
+      "row": 3,
+      "year": 0,
+      "semester": 0,
+      "label": "910-901-R - MATH Pre-Requisites",
+      "joined_by_and": true,
+      "code": "",
+      "title": "910-901-R - MATH Pre-Requisites",
+      "category": "Required",
+      "units": null,
+      "term": null,
+      "term_choice": null,
+      "has_select": true,
+      "has_requirement": false
+    },
+    {
+      "row": 4,
+      "year": 0,
+      "semester": 0,
+      "label": "MATH 1030: Calculus I",
+      "joined_by_and": true,
+      "code": "MATH 1030",
+      "title": "Calculus I",
+      "category": "Required",
+      "units": "3.00",
+      "term": "Winter 2026",
+      "term_choice": null,
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 5,
+      "year": 0,
+      "semester": 1,
+      "label": "COMM 1020: English Communication II",
+      "joined_by_and": false,
+      "code": "COMM 1020",
+      "title": "English Communication II",
+      "category": "Required",
+      "units": "3.00",
+      "term": "Winter 2026",
+      "term_choice": null,
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 6,
+      "year": 0,
+      "semester": 1,
+      "label": "INFS 1201: Computer Programming",
+      "joined_by_and": true,
+      "code": "INFS 1201",
+      "title": "Computer Programming",
+      "category": "Required",
+      "units": "4.00",
+      "term": "Winter 2026",
+      "term_choice": null,
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 7,
+      "year": 0,
+      "semester": 1,
+      "label": "INFT 2101: Networking I",
+      "joined_by_and": true,
+      "code": "INFT 2101",
+      "title": "Networking I",
+      "category": "Required",
+      "units": "4.00",
+      "term": "Winter 2026",
+      "term_choice": null,
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 8,
+      "year": 0,
+      "semester": 1,
+      "label": "MATH 1040: Statistics",
+      "joined_by_and": true,
+      "code": "MATH 1040",
+      "title": "Statistics",
+      "category": "Required",
+      "units": "3.00",
+      "term": "Winter 2026",
+      "term_choice": null,
+      "has_select": false,
+      "has_requirement": false
+    },
+    {
+      "row": 9,
+      "year": 0,
+      "semester": 2,
+      "label": "INFS 1301: Computing Ethics and Society",
+      "joined_by_and": false,
+      "code": "INFS 1301",
+      "title": "Computing Ethics and Society",
+      "category": "Required",
+      "units": "3.00",
+      "term": "Spring 2026",
+      "term_choice": null,
+      "has_select": false,
+      "has_requirement": false
+    },
+    {
+      "row": 10,
+      "year": 0,
+      "semester": 2,
+      "label": "910-901-R Semester 3 - SCIE Course List",
+      "joined_by_and": true,
+      "code": "",
+      "title": "910-901-R Semester 3 - SCIE Course List",
+      "category": "Required",
+      "units": null,
+      "term": null,
+      "term_choice": null,
+      "has_select": true,
+      "has_requirement": false
+    },
+    {
+      "row": 11,
+      "year": 1,
+      "semester": 3,
+      "label": "INFS 2101: Web Technologies I",
+      "joined_by_and": false,
+      "code": "INFS 2101",
+      "title": "Web Technologies I",
+      "category": "Required",
+      "units": "3.00",
+      "term": "Fall 2026",
+      "term_choice": null,
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 12,
+      "year": 1,
+      "semester": 3,
+      "label": "DACS 2201: Intro to Data & Cyber Security",
+      "joined_by_and": true,
+      "code": "DACS 2201",
+      "title": "Intro to Data & Cyber Security",
+      "category": "Required",
+      "units": "3.00",
+      "term": "Fall 2026",
+      "term_choice": null,
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 13,
+      "year": 1,
+      "semester": 3,
+      "label": "DACS 2101: Discrete Structures",
+      "joined_by_and": true,
+      "code": "DACS 2101",
+      "title": "Discrete Structures",
+      "category": "Required",
+      "units": "3.00",
+      "term": "Fall 2026",
+      "term_choice": null,
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 14,
+      "year": 1,
+      "semester": 3,
+      "label": "MATH 1050: Linear Algebra",
+      "joined_by_and": true,
+      "code": "MATH 1050",
+      "title": "Linear Algebra",
+      "category": "Required",
+      "units": "3.00",
+      "term": "Spring 2026",
+      "term_choice": null,
+      "has_select": false,
+      "has_requirement": false
+    },
+    {
+      "row": 15,
+      "year": 1,
+      "semester": 4,
+      "label": "DACS 2202: Intro. to Computing Systems",
+      "joined_by_and": false,
+      "code": "DACS 2202",
+      "title": "Intro. to Computing Systems",
+      "category": "Required",
+      "units": "4.00",
+      "term": "Winter 2027",
+      "term_choice": null,
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 16,
+      "year": 1,
+      "semester": 4,
+      "label": "DSAI 2201: Intro to Data Science and AI",
+      "joined_by_and": true,
+      "code": "DSAI 2201",
+      "title": "Intro to Data Science and AI",
+      "category": "Required",
+      "units": "3.00",
+      "term": "Winter 2027",
+      "term_choice": null,
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 17,
+      "year": 1,
+      "semester": 4,
+      "label": "INFS 2201: Database Management Systems",
+      "joined_by_and": true,
+      "code": "INFS 2201",
+      "title": "Database Management Systems",
+      "category": "Required",
+      "units": "3.00",
+      "term": "Winter 2027",
+      "term_choice": null,
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 18,
+      "year": 1,
+      "semester": 4,
+      "label": "INFS 3102: Object-Oriented Programming",
+      "joined_by_and": true,
+      "code": "INFS 3102",
+      "title": "Object-Oriented Programming",
+      "category": "Required",
+      "units": "3.00",
+      "term": "Winter 2027",
+      "term_choice": null,
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 19,
+      "year": 1,
+      "semester": 5,
+      "label": "SOFT 2301: Software Project Management",
+      "joined_by_and": false,
+      "code": "SOFT 2301",
+      "title": "Software Project Management",
+      "category": "Required",
+      "units": "3.00",
+      "term": null,
+      "term_choice": {
+        "selected": "1275",
+        "options": [
+          {
+            "code": "1278",
+            "label": "Fall 2027"
+          },
+          {
+            "code": "1288",
+            "label": "Fall 2028"
+          },
+          {
+            "code": "1298",
+            "label": "Fall 2029"
+          },
+          {
+            "code": "1308",
+            "label": "Fall 2030"
+          },
+          {
+            "code": "1275",
+            "label": "Spring 2027"
+          },
+          {
+            "code": "1285",
+            "label": "Spring 2028"
+          },
+          {
+            "code": "1295",
+            "label": "Spring 2029"
+          },
+          {
+            "code": "1305",
+            "label": "Spring 2030"
+          },
+          {
+            "code": "1315",
+            "label": "Spring 2031"
+          },
+          {
+            "code": "1271",
+            "label": "Winter 2027"
+          },
+          {
+            "code": "1281",
+            "label": "Winter 2028"
+          },
+          {
+            "code": "1291",
+            "label": "Winter 2029"
+          },
+          {
+            "code": "1301",
+            "label": "Winter 2030"
+          },
+          {
+            "code": "1311",
+            "label": "Winter 2031"
+          }
+        ]
+      },
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 20,
+      "year": 1,
+      "semester": 5,
+      "label": "910-901-R Semester 6 - GARC Course List",
+      "joined_by_and": true,
+      "code": "",
+      "title": "910-901-R Semester 6 - GARC Course List",
+      "category": "Required",
+      "units": null,
+      "term": null,
+      "term_choice": null,
+      "has_select": true,
+      "has_requirement": false
+    },
+    {
+      "row": 21,
+      "year": 2,
+      "semester": 6,
+      "label": "DACS 3101: Applied Cryptography",
+      "joined_by_and": false,
+      "code": "DACS 3101",
+      "title": "Applied Cryptography",
+      "category": "Required",
+      "units": "3.00",
+      "term": null,
+      "term_choice": {
+        "selected": "1278",
+        "options": [
+          {
+            "code": "1278",
+            "label": "Fall 2027"
+          },
+          {
+            "code": "1288",
+            "label": "Fall 2028"
+          },
+          {
+            "code": "1298",
+            "label": "Fall 2029"
+          },
+          {
+            "code": "1308",
+            "label": "Fall 2030"
+          },
+          {
+            "code": "1275",
+            "label": "Spring 2027"
+          },
+          {
+            "code": "1285",
+            "label": "Spring 2028"
+          },
+          {
+            "code": "1295",
+            "label": "Spring 2029"
+          },
+          {
+            "code": "1305",
+            "label": "Spring 2030"
+          },
+          {
+            "code": "1315",
+            "label": "Spring 2031"
+          },
+          {
+            "code": "1271",
+            "label": "Winter 2027"
+          },
+          {
+            "code": "1281",
+            "label": "Winter 2028"
+          },
+          {
+            "code": "1291",
+            "label": "Winter 2029"
+          },
+          {
+            "code": "1301",
+            "label": "Winter 2030"
+          },
+          {
+            "code": "1311",
+            "label": "Winter 2031"
+          }
+        ]
+      },
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 22,
+      "year": 2,
+      "semester": 6,
+      "label": "INFT 3101: Networking II",
+      "joined_by_and": true,
+      "code": "INFT 3101",
+      "title": "Networking II",
+      "category": "Required",
+      "units": "3.00",
+      "term": null,
+      "term_choice": {
+        "selected": "1278",
+        "options": [
+          {
+            "code": "1278",
+            "label": "Fall 2027"
+          },
+          {
+            "code": "1288",
+            "label": "Fall 2028"
+          },
+          {
+            "code": "1298",
+            "label": "Fall 2029"
+          },
+          {
+            "code": "1308",
+            "label": "Fall 2030"
+          },
+          {
+            "code": "1275",
+            "label": "Spring 2027"
+          },
+          {
+            "code": "1285",
+            "label": "Spring 2028"
+          },
+          {
+            "code": "1295",
+            "label": "Spring 2029"
+          },
+          {
+            "code": "1305",
+            "label": "Spring 2030"
+          },
+          {
+            "code": "1315",
+            "label": "Spring 2031"
+          },
+          {
+            "code": "1271",
+            "label": "Winter 2027"
+          },
+          {
+            "code": "1281",
+            "label": "Winter 2028"
+          },
+          {
+            "code": "1291",
+            "label": "Winter 2029"
+          },
+          {
+            "code": "1301",
+            "label": "Winter 2030"
+          },
+          {
+            "code": "1311",
+            "label": "Winter 2031"
+          }
+        ]
+      },
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 23,
+      "year": 2,
+      "semester": 6,
+      "label": "INFT 2201: Intro to Operating Systems",
+      "joined_by_and": true,
+      "code": "INFT 2201",
+      "title": "Intro to Operating Systems",
+      "category": "Required",
+      "units": "3.00",
+      "term": null,
+      "term_choice": {
+        "selected": "1278",
+        "options": [
+          {
+            "code": "1278",
+            "label": "Fall 2027"
+          },
+          {
+            "code": "1288",
+            "label": "Fall 2028"
+          },
+          {
+            "code": "1298",
+            "label": "Fall 2029"
+          },
+          {
+            "code": "1308",
+            "label": "Fall 2030"
+          },
+          {
+            "code": "1275",
+            "label": "Spring 2027"
+          },
+          {
+            "code": "1285",
+            "label": "Spring 2028"
+          },
+          {
+            "code": "1295",
+            "label": "Spring 2029"
+          },
+          {
+            "code": "1305",
+            "label": "Spring 2030"
+          },
+          {
+            "code": "1315",
+            "label": "Spring 2031"
+          },
+          {
+            "code": "1271",
+            "label": "Winter 2027"
+          },
+          {
+            "code": "1281",
+            "label": "Winter 2028"
+          },
+          {
+            "code": "1291",
+            "label": "Winter 2029"
+          },
+          {
+            "code": "1301",
+            "label": "Winter 2030"
+          },
+          {
+            "code": "1311",
+            "label": "Winter 2031"
+          }
+        ]
+      },
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 24,
+      "year": 2,
+      "semester": 6,
+      "label": "DACS 3203: Secure Software Development",
+      "joined_by_and": true,
+      "code": "DACS 3203",
+      "title": "Secure Software Development",
+      "category": "Required",
+      "units": "3.00",
+      "term": null,
+      "term_choice": {
+        "selected": "1278",
+        "options": [
+          {
+            "code": "1278",
+            "label": "Fall 2027"
+          },
+          {
+            "code": "1288",
+            "label": "Fall 2028"
+          },
+          {
+            "code": "1298",
+            "label": "Fall 2029"
+          },
+          {
+            "code": "1308",
+            "label": "Fall 2030"
+          },
+          {
+            "code": "1275",
+            "label": "Spring 2027"
+          },
+          {
+            "code": "1285",
+            "label": "Spring 2028"
+          },
+          {
+            "code": "1295",
+            "label": "Spring 2029"
+          },
+          {
+            "code": "1305",
+            "label": "Spring 2030"
+          },
+          {
+            "code": "1315",
+            "label": "Spring 2031"
+          },
+          {
+            "code": "1271",
+            "label": "Winter 2027"
+          },
+          {
+            "code": "1281",
+            "label": "Winter 2028"
+          },
+          {
+            "code": "1291",
+            "label": "Winter 2029"
+          },
+          {
+            "code": "1301",
+            "label": "Winter 2030"
+          },
+          {
+            "code": "1311",
+            "label": "Winter 2031"
+          }
+        ]
+      },
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 25,
+      "year": 2,
+      "semester": 7,
+      "label": "DACS 3201: Network Security",
+      "joined_by_and": false,
+      "code": "DACS 3201",
+      "title": "Network Security",
+      "category": "Required",
+      "units": "3.00",
+      "term": null,
+      "term_choice": {
+        "selected": "1281",
+        "options": [
+          {
+            "code": "1278",
+            "label": "Fall 2027"
+          },
+          {
+            "code": "1288",
+            "label": "Fall 2028"
+          },
+          {
+            "code": "1298",
+            "label": "Fall 2029"
+          },
+          {
+            "code": "1308",
+            "label": "Fall 2030"
+          },
+          {
+            "code": "1275",
+            "label": "Spring 2027"
+          },
+          {
+            "code": "1285",
+            "label": "Spring 2028"
+          },
+          {
+            "code": "1295",
+            "label": "Spring 2029"
+          },
+          {
+            "code": "1305",
+            "label": "Spring 2030"
+          },
+          {
+            "code": "1315",
+            "label": "Spring 2031"
+          },
+          {
+            "code": "1271",
+            "label": "Winter 2027"
+          },
+          {
+            "code": "1281",
+            "label": "Winter 2028"
+          },
+          {
+            "code": "1291",
+            "label": "Winter 2029"
+          },
+          {
+            "code": "1301",
+            "label": "Winter 2030"
+          },
+          {
+            "code": "1311",
+            "label": "Winter 2031"
+          }
+        ]
+      },
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 26,
+      "year": 2,
+      "semester": 7,
+      "label": "DACS 4101: Security Engineering Principle",
+      "joined_by_and": true,
+      "code": "DACS 4101",
+      "title": "Security Engineering Principle",
+      "category": "Required",
+      "units": "3.00",
+      "term": null,
+      "term_choice": {
+        "selected": "1281",
+        "options": [
+          {
+            "code": "1278",
+            "label": "Fall 2027"
+          },
+          {
+            "code": "1288",
+            "label": "Fall 2028"
+          },
+          {
+            "code": "1298",
+            "label": "Fall 2029"
+          },
+          {
+            "code": "1308",
+            "label": "Fall 2030"
+          },
+          {
+            "code": "1275",
+            "label": "Spring 2027"
+          },
+          {
+            "code": "1285",
+            "label": "Spring 2028"
+          },
+          {
+            "code": "1295",
+            "label": "Spring 2029"
+          },
+          {
+            "code": "1305",
+            "label": "Spring 2030"
+          },
+          {
+            "code": "1315",
+            "label": "Spring 2031"
+          },
+          {
+            "code": "1271",
+            "label": "Winter 2027"
+          },
+          {
+            "code": "1281",
+            "label": "Winter 2028"
+          },
+          {
+            "code": "1291",
+            "label": "Winter 2029"
+          },
+          {
+            "code": "1301",
+            "label": "Winter 2030"
+          },
+          {
+            "code": "1311",
+            "label": "Winter 2031"
+          }
+        ]
+      },
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 27,
+      "year": 2,
+      "semester": 7,
+      "label": "DACS 3202: Cyber Sec Analytics & Visual",
+      "joined_by_and": true,
+      "code": "DACS 3202",
+      "title": "Cyber Sec Analytics & Visual",
+      "category": "Required",
+      "units": "3.00",
+      "term": null,
+      "term_choice": {
+        "selected": "1281",
+        "options": [
+          {
+            "code": "1278",
+            "label": "Fall 2027"
+          },
+          {
+            "code": "1288",
+            "label": "Fall 2028"
+          },
+          {
+            "code": "1298",
+            "label": "Fall 2029"
+          },
+          {
+            "code": "1308",
+            "label": "Fall 2030"
+          },
+          {
+            "code": "1275",
+            "label": "Spring 2027"
+          },
+          {
+            "code": "1285",
+            "label": "Spring 2028"
+          },
+          {
+            "code": "1295",
+            "label": "Spring 2029"
+          },
+          {
+            "code": "1305",
+            "label": "Spring 2030"
+          },
+          {
+            "code": "1315",
+            "label": "Spring 2031"
+          },
+          {
+            "code": "1271",
+            "label": "Winter 2027"
+          },
+          {
+            "code": "1281",
+            "label": "Winter 2028"
+          },
+          {
+            "code": "1291",
+            "label": "Winter 2029"
+          },
+          {
+            "code": "1301",
+            "label": "Winter 2030"
+          },
+          {
+            "code": "1311",
+            "label": "Winter 2031"
+          }
+        ]
+      },
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 28,
+      "year": 2,
+      "semester": 7,
+      "label": "INFS 3201: Web Technologies II",
+      "joined_by_and": true,
+      "code": "INFS 3201",
+      "title": "Web Technologies II",
+      "category": "Required",
+      "units": "3.00",
+      "term": null,
+      "term_choice": {
+        "selected": "1281",
+        "options": [
+          {
+            "code": "1278",
+            "label": "Fall 2027"
+          },
+          {
+            "code": "1288",
+            "label": "Fall 2028"
+          },
+          {
+            "code": "1298",
+            "label": "Fall 2029"
+          },
+          {
+            "code": "1308",
+            "label": "Fall 2030"
+          },
+          {
+            "code": "1275",
+            "label": "Spring 2027"
+          },
+          {
+            "code": "1285",
+            "label": "Spring 2028"
+          },
+          {
+            "code": "1295",
+            "label": "Spring 2029"
+          },
+          {
+            "code": "1305",
+            "label": "Spring 2030"
+          },
+          {
+            "code": "1315",
+            "label": "Spring 2031"
+          },
+          {
+            "code": "1271",
+            "label": "Winter 2027"
+          },
+          {
+            "code": "1281",
+            "label": "Winter 2028"
+          },
+          {
+            "code": "1291",
+            "label": "Winter 2029"
+          },
+          {
+            "code": "1301",
+            "label": "Winter 2030"
+          },
+          {
+            "code": "1311",
+            "label": "Winter 2031"
+          }
+        ]
+      },
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 29,
+      "year": 2,
+      "semester": 8,
+      "label": "DACS 3301: Privacy in the Digital Era",
+      "joined_by_and": false,
+      "code": "DACS 3301",
+      "title": "Privacy in the Digital Era",
+      "category": "Required",
+      "units": "3.00",
+      "term": null,
+      "term_choice": {
+        "selected": "1285",
+        "options": [
+          {
+            "code": "1278",
+            "label": "Fall 2027"
+          },
+          {
+            "code": "1288",
+            "label": "Fall 2028"
+          },
+          {
+            "code": "1298",
+            "label": "Fall 2029"
+          },
+          {
+            "code": "1308",
+            "label": "Fall 2030"
+          },
+          {
+            "code": "1275",
+            "label": "Spring 2027"
+          },
+          {
+            "code": "1285",
+            "label": "Spring 2028"
+          },
+          {
+            "code": "1295",
+            "label": "Spring 2029"
+          },
+          {
+            "code": "1305",
+            "label": "Spring 2030"
+          },
+          {
+            "code": "1315",
+            "label": "Spring 2031"
+          },
+          {
+            "code": "1271",
+            "label": "Winter 2027"
+          },
+          {
+            "code": "1281",
+            "label": "Winter 2028"
+          },
+          {
+            "code": "1291",
+            "label": "Winter 2029"
+          },
+          {
+            "code": "1301",
+            "label": "Winter 2030"
+          },
+          {
+            "code": "1311",
+            "label": "Winter 2031"
+          }
+        ]
+      },
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 30,
+      "year": 2,
+      "semester": 8,
+      "label": "910-901-R Semester 9 - GARC Course List",
+      "joined_by_and": true,
+      "code": "",
+      "title": "910-901-R Semester 9 - GARC Course List",
+      "category": "Required",
+      "units": null,
+      "term": null,
+      "term_choice": null,
+      "has_select": true,
+      "has_requirement": false
+    },
+    {
+      "row": 31,
+      "year": 3,
+      "semester": 9,
+      "label": "COMP 4101: Practicum",
+      "joined_by_and": false,
+      "code": "COMP 4101",
+      "title": "Practicum",
+      "category": "Required",
+      "units": "3.00",
+      "term": null,
+      "term_choice": {
+        "selected": "1288",
+        "options": [
+          {
+            "code": "1278",
+            "label": "Fall 2027"
+          },
+          {
+            "code": "1288",
+            "label": "Fall 2028"
+          },
+          {
+            "code": "1298",
+            "label": "Fall 2029"
+          },
+          {
+            "code": "1308",
+            "label": "Fall 2030"
+          },
+          {
+            "code": "1275",
+            "label": "Spring 2027"
+          },
+          {
+            "code": "1285",
+            "label": "Spring 2028"
+          },
+          {
+            "code": "1295",
+            "label": "Spring 2029"
+          },
+          {
+            "code": "1305",
+            "label": "Spring 2030"
+          },
+          {
+            "code": "1315",
+            "label": "Spring 2031"
+          },
+          {
+            "code": "1271",
+            "label": "Winter 2027"
+          },
+          {
+            "code": "1281",
+            "label": "Winter 2028"
+          },
+          {
+            "code": "1291",
+            "label": "Winter 2029"
+          },
+          {
+            "code": "1301",
+            "label": "Winter 2030"
+          },
+          {
+            "code": "1311",
+            "label": "Winter 2031"
+          }
+        ]
+      },
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 32,
+      "year": 3,
+      "semester": 9,
+      "label": "DACS 4103: Scripting for Cyber Security",
+      "joined_by_and": true,
+      "code": "DACS 4103",
+      "title": "Scripting for Cyber Security",
+      "category": "Required",
+      "units": "3.00",
+      "term": null,
+      "term_choice": {
+        "selected": "1288",
+        "options": [
+          {
+            "code": "1278",
+            "label": "Fall 2027"
+          },
+          {
+            "code": "1288",
+            "label": "Fall 2028"
+          },
+          {
+            "code": "1298",
+            "label": "Fall 2029"
+          },
+          {
+            "code": "1308",
+            "label": "Fall 2030"
+          },
+          {
+            "code": "1275",
+            "label": "Spring 2027"
+          },
+          {
+            "code": "1285",
+            "label": "Spring 2028"
+          },
+          {
+            "code": "1295",
+            "label": "Spring 2029"
+          },
+          {
+            "code": "1305",
+            "label": "Spring 2030"
+          },
+          {
+            "code": "1315",
+            "label": "Spring 2031"
+          },
+          {
+            "code": "1271",
+            "label": "Winter 2027"
+          },
+          {
+            "code": "1281",
+            "label": "Winter 2028"
+          },
+          {
+            "code": "1291",
+            "label": "Winter 2029"
+          },
+          {
+            "code": "1301",
+            "label": "Winter 2030"
+          },
+          {
+            "code": "1311",
+            "label": "Winter 2031"
+          }
+        ]
+      },
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 33,
+      "year": 3,
+      "semester": 9,
+      "label": "DACS 4202: Penetration Testing",
+      "joined_by_and": true,
+      "code": "DACS 4202",
+      "title": "Penetration Testing",
+      "category": "Required",
+      "units": "3.00",
+      "term": null,
+      "term_choice": {
+        "selected": "1288",
+        "options": [
+          {
+            "code": "1278",
+            "label": "Fall 2027"
+          },
+          {
+            "code": "1288",
+            "label": "Fall 2028"
+          },
+          {
+            "code": "1298",
+            "label": "Fall 2029"
+          },
+          {
+            "code": "1308",
+            "label": "Fall 2030"
+          },
+          {
+            "code": "1275",
+            "label": "Spring 2027"
+          },
+          {
+            "code": "1285",
+            "label": "Spring 2028"
+          },
+          {
+            "code": "1295",
+            "label": "Spring 2029"
+          },
+          {
+            "code": "1305",
+            "label": "Spring 2030"
+          },
+          {
+            "code": "1315",
+            "label": "Spring 2031"
+          },
+          {
+            "code": "1271",
+            "label": "Winter 2027"
+          },
+          {
+            "code": "1281",
+            "label": "Winter 2028"
+          },
+          {
+            "code": "1291",
+            "label": "Winter 2029"
+          },
+          {
+            "code": "1301",
+            "label": "Winter 2030"
+          },
+          {
+            "code": "1311",
+            "label": "Winter 2031"
+          }
+        ]
+      },
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 34,
+      "year": 3,
+      "semester": 9,
+      "label": "910-901-R - Semester 10 Elective Course List",
+      "joined_by_and": true,
+      "code": "",
+      "title": "910-901-R - Semester 10 Elective Course List",
+      "category": "Required",
+      "units": null,
+      "term": null,
+      "term_choice": null,
+      "has_select": true,
+      "has_requirement": false
+    },
+    {
+      "row": 35,
+      "year": 3,
+      "semester": 10,
+      "label": "COMP 4201: Capstone Project",
+      "joined_by_and": false,
+      "code": "COMP 4201",
+      "title": "Capstone Project",
+      "category": "Required",
+      "units": "3.00",
+      "term": null,
+      "term_choice": {
+        "selected": "1291",
+        "options": [
+          {
+            "code": "1278",
+            "label": "Fall 2027"
+          },
+          {
+            "code": "1288",
+            "label": "Fall 2028"
+          },
+          {
+            "code": "1298",
+            "label": "Fall 2029"
+          },
+          {
+            "code": "1308",
+            "label": "Fall 2030"
+          },
+          {
+            "code": "1275",
+            "label": "Spring 2027"
+          },
+          {
+            "code": "1285",
+            "label": "Spring 2028"
+          },
+          {
+            "code": "1295",
+            "label": "Spring 2029"
+          },
+          {
+            "code": "1305",
+            "label": "Spring 2030"
+          },
+          {
+            "code": "1315",
+            "label": "Spring 2031"
+          },
+          {
+            "code": "1271",
+            "label": "Winter 2027"
+          },
+          {
+            "code": "1281",
+            "label": "Winter 2028"
+          },
+          {
+            "code": "1291",
+            "label": "Winter 2029"
+          },
+          {
+            "code": "1301",
+            "label": "Winter 2030"
+          },
+          {
+            "code": "1311",
+            "label": "Winter 2031"
+          }
+        ]
+      },
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 36,
+      "year": 3,
+      "semester": 10,
+      "label": "DACS 4206: Sec Monitor & Incident Res",
+      "joined_by_and": true,
+      "code": "DACS 4206",
+      "title": "Sec Monitor & Incident Res",
+      "category": "Required",
+      "units": "3.00",
+      "term": null,
+      "term_choice": {
+        "selected": "1291",
+        "options": [
+          {
+            "code": "1278",
+            "label": "Fall 2027"
+          },
+          {
+            "code": "1288",
+            "label": "Fall 2028"
+          },
+          {
+            "code": "1298",
+            "label": "Fall 2029"
+          },
+          {
+            "code": "1308",
+            "label": "Fall 2030"
+          },
+          {
+            "code": "1275",
+            "label": "Spring 2027"
+          },
+          {
+            "code": "1285",
+            "label": "Spring 2028"
+          },
+          {
+            "code": "1295",
+            "label": "Spring 2029"
+          },
+          {
+            "code": "1305",
+            "label": "Spring 2030"
+          },
+          {
+            "code": "1315",
+            "label": "Spring 2031"
+          },
+          {
+            "code": "1271",
+            "label": "Winter 2027"
+          },
+          {
+            "code": "1281",
+            "label": "Winter 2028"
+          },
+          {
+            "code": "1291",
+            "label": "Winter 2029"
+          },
+          {
+            "code": "1301",
+            "label": "Winter 2030"
+          },
+          {
+            "code": "1311",
+            "label": "Winter 2031"
+          }
+        ]
+      },
+      "has_select": false,
+      "has_requirement": true
+    },
+    {
+      "row": 37,
+      "year": 3,
+      "semester": 10,
+      "label": "910-901-R Semester 11 Elective Course List",
+      "joined_by_and": true,
+      "code": "",
+      "title": "910-901-R Semester 11 Elective Course List",
+      "category": "Required",
+      "units": null,
+      "term": null,
+      "term_choice": null,
+      "has_select": true,
+      "has_requirement": false
+    },
+    {
+      "row": 38,
+      "year": 3,
+      "semester": 11,
+      "label": "COMP 4301: Work Placement",
+      "joined_by_and": false,
+      "code": "COMP 4301",
+      "title": "Work Placement",
+      "category": "Required",
+      "units": "9.00",
+      "term": null,
+      "term_choice": {
+        "selected": "1295",
+        "options": [
+          {
+            "code": "1278",
+            "label": "Fall 2027"
+          },
+          {
+            "code": "1288",
+            "label": "Fall 2028"
+          },
+          {
+            "code": "1298",
+            "label": "Fall 2029"
+          },
+          {
+            "code": "1308",
+            "label": "Fall 2030"
+          },
+          {
+            "code": "1275",
+            "label": "Spring 2027"
+          },
+          {
+            "code": "1285",
+            "label": "Spring 2028"
+          },
+          {
+            "code": "1295",
+            "label": "Spring 2029"
+          },
+          {
+            "code": "1305",
+            "label": "Spring 2030"
+          },
+          {
+            "code": "1315",
+            "label": "Spring 2031"
+          },
+          {
+            "code": "1271",
+            "label": "Winter 2027"
+          },
+          {
+            "code": "1281",
+            "label": "Winter 2028"
+          },
+          {
+            "code": "1291",
+            "label": "Winter 2029"
+          },
+          {
+            "code": "1301",
+            "label": "Winter 2030"
+          },
+          {
+            "code": "1311",
+            "label": "Winter 2031"
+          }
+        ]
+      },
+      "has_select": false,
+      "has_requirement": true
+    }
+  ]
+}

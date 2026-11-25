@@ -1,0 +1,19 @@
+[package]
+name = "frankie-connector-peoplesoft"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "UDST PeopleSoft (Campus Solutions, Fluid) connector: class sections and seats, Plan & Enrol, drop, swap. Read-only by default; every write is preview, then confirm token, then a typed phrase."
+
+[dependencies]
+frankie-contracts = { path = "../frankie-contracts" }
+frankie-auth = { path = "../frankie-auth" }
+regex = "1"
+html-escape = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+getrandom = "0.2"
+thiserror = "2"
+url = "2"
+zeroize = { version = "1", features = ["derive"] }

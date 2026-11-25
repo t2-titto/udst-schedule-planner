@@ -1,0 +1,52 @@
+{
+  "term": "Winter 2099",
+  "termRow": null,
+  "drops": [],
+  "rounds": [],
+  "enrols": [
+    {
+      "pick": {
+        "row": 4294967295,
+        "optionRow": 4294967295,
+        "course": "TEST 1001",
+        "key": {
+          "strm": "9999",
+          "crse_id": "000002",
+          "crse_offer_nbr": "1",
+          "acad_career": "CRED",
+          "institution": "TESTI"
+        },
+        "classNbrs": [
+          "9",
+          "10"
+        ],
+        "seen": {
+          "9": 5,
+          "10": 5
+        }
+      },
+      "depends": [],
+      "afterPlan": true
+    }
+  ],
+  "plans": [
+    {
+      "course": "TEST 1001",
+      "year": 1,
+      "index": 8,
+      "termCode": "1271",
+      "credits": {
+        "term": "Winter 2099",
+        "limit": 18,
+        "after": 3,
+        "unknown": []
+      }
+    }
+  ],
+  "credits": {
+    "term": "Winter 2099",
+    "limit": 18,
+    "after": 3,
+    "unknown": []
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "910-901-R Semester 3 - SCIE Course List",
+  "choices": [
+    {
+      "row": 0,
+      "joined_by": "",
+      "code": "SCIE 1001",
+      "title": "Science and its Applications",
+      "category": "Elective",
+      "units": "3.00",
+      "term": "Spring 2026"
+    },
+    {
+      "row": 1,
+      "joined_by": "or",
+      "code": "SCIE 1002",
+      "title": "Science and the Environment",
+      "category": "Elective",
+      "units": "3.00",
+      "term": ""
+    }
+  ]
+}

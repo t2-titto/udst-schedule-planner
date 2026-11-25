@@ -1,0 +1,30 @@
+[package]
+name = "frankie-auth"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Frankie login flows ported from PowerShell (F-003). Pure parsing and safety rules, a blocking HTTP transport, and the D2L flow."
+
+[features]
+default = ["http-client"]
+# The only code that touches the network. Everything else in the crate is pure and runs without it.
+http-client = ["dep:reqwest"]
+
+# DEV/TEST ONLY: lets `frankie-auth-dev-session` read the cookie jar so a human can open the signed-in session
+# in a visible browser. Off by default; no app, host or release build may enable it.
+dev-session-export = ["http-client"]
+
+# DEV/TEST ONLY (proto engine, rule R10): adds `ReqwestHttp::with_dev_net`, which trusts one extra root CA and
+# pins named hosts to given IP addresses (for the localhost mock server). Off by default; no release build may
+# enable it. Without this feature nothing in the crate changes.
+dev-net = ["http-client"]
+
+[dependencies]
+reqwest = { version = "0.12", optional = true, default-features = false, features = ["blocking", "cookies", "rustls-tls"] }
+frankie-contracts = { path = "../frankie-contracts" }
+html-escape = "0.2"
+regex = "1"
+serde_json = "1"
+thiserror = "2"
+url = "2"
+zeroize = { version = "1", features = ["derive"] }

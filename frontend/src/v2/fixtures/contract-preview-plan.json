@@ -1,0 +1,17 @@
+{
+  "tool": "preview_plan_term",
+  "args": {
+    "year": 1,
+    "index": 8,
+    "term_code": "1278"
+  },
+  "credits": {
+    "term": "Fall 2099",
+    "limit": 18,
+    "after": 6,
+    "unknown": []
+  },
+  "expect": [
+    "TEST1001"
+  ]
+}

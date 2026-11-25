@@ -1,0 +1,56 @@
+{
+ "course": "DACS 2202",
+ "term": "Winter 2027",
+ "title": "Introduction to Computing Systems",
+ "options": [
+  {
+   "components": [
+    {
+     "class_nbr": "3380",
+     "dates": "05/01/2027 - 14/04/2027",
+     "instructor": "Staff",
+     "kind": "Lecture",
+     "meetings": [
+      {
+       "day": "Monday",
+       "end": "12:30PM",
+       "start": "11:00AM"
+      },
+      {
+       "day": "Wednesday",
+       "end": "12:30PM",
+       "start": "11:00AM"
+      }
+     ],
+     "room": "10.1.06",
+     "schedule_text": "Monday 11:00AM to 12:30PM Wednesday 11:00AM to 12:30PM",
+     "seats": null,
+     "seats_text": "Waitlist Available Places 2 of 4",
+     "section": "3"
+    },
+    {
+     "class_nbr": "3381",
+     "dates": "",
+     "instructor": "Staff",
+     "kind": "Laboratory",
+     "meetings": [
+      {
+       "day": "Sunday",
+       "end": "2:00PM",
+       "start": "11:00AM"
+      }
+     ],
+     "room": "10.1.06",
+     "schedule_text": "Sunday 11:00AM to 2:00PM",
+     "seats": null,
+     "seats_text": "Waitlist Available Places 2 of 4",
+     "section": "4"
+    }
+   ],
+   "option_no": "3",
+   "row": 2,
+   "session": "Regular Academic Session",
+   "status": "Wait List"
+  }
+ ]
+}

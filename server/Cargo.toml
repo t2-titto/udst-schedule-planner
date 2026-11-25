@@ -1,0 +1,22 @@
+[package]
+name = "schedule-planner-server"
+version = "0.1.0"
+edition = "2024"
+description = "Local-only backend for the schedule planner: links the frankie PeopleSoft connector."
+
+[dependencies]
+axum = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "time", "net", "signal"] }
+tower-http = { version = "0.6", features = ["fs"] }
+zeroize = "1"
+# The connector is linked, not copied, so its write gate (preview, one-time token, exact phrase) is the real one.
+# Pinned to one exact commit of a local clone of the frankie repo (branch frankie-peoplesoft-connector), so edits,
+# commits or a branch switch in the frankie working tree cannot change this build. Move the pin only deliberately:
+# see "Pinned connector" in the README for the commit and what it adds.
+frankie-connector-peoplesoft = { path = "../crates/frankie-connector-peoplesoft" }
+frankie-auth = { path = "../crates/frankie-auth" }
+
+[profile.release]
+opt-level = 2
