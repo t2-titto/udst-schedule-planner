@@ -35,16 +35,24 @@ You do **not** need to reinstall. Everything stays in `C:\Users\<you>\AppData\Lo
 
 Keep the black window open while using the planner; closing it (or Ctrl+C) stops the server.
 
-### Updating to the newest version
+### Updates are automatic
+Every time the planner starts (shortcut, `Ctrl+Alt+U`, or the command above) it checks GitHub for a newer version. If there is one, it downloads it, rebuilds (fast, the build cache is kept) and then starts it. If you are offline, or the check fails, it just starts the version you have.
+
+**The one line that always works** (even on an old install that has no auto-update yet, or if anything is broken) is the install command; it fetches the latest installer, updates if needed, and launches:
+```powershell
+irm https://raw.githubusercontent.com/t2-titto/udst-schedule-planner/main/install.ps1 | iex
+```
+To force a re-download and rebuild even when already up to date:
 ```powershell
 $env:UDST_UPDATE = "1"; irm https://raw.githubusercontent.com/t2-titto/udst-schedule-planner/main/install.ps1 | iex
 ```
-This re-downloads the code, stops the old server if it is running, and rebuilds (fast, the build cache is kept).
 
 ### Edge cases handled
 | Situation | What happens |
 |---|---|
-| Already installed | Installer skips download/build, repairs shortcut, launches |
+| Already installed and up to date | Installer skips download/build, repairs shortcut, launches |
+| Newer version on GitHub | Downloaded, rebuilt and launched automatically (skipped if offline) |
+| Planner already running when a launch/update is requested | Just opens the running one; updates apply at the next start |
 | Planner already running | Launcher just opens your browser to it (no duplicate server) |
 | Port 8787 used by another program | Launcher automatically uses the next free port (8788-8796) and opens that URL |
 | Updating while the server is running | Installer stops only this app's server first so the `.exe` isn't locked |

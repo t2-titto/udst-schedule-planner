@@ -10,6 +10,7 @@ $Exe        = Join-Path $AppDir "server\target\release\schedule-planner-server.e
 $Launcher   = Join-Path $InstallDir "Start-UDST-Planner.bat"
 $Hotkey     = "CTRL+ALT+U"
 $Base       = 8787
+$Repo       = "t2-titto/udst-schedule-planner"
 
 function Ensure-Shortcuts {
     try {
@@ -40,6 +41,29 @@ function Ensure-Shortcuts {
         }
     } catch {
         Write-Host "  (Could not create shortcuts: $($_.Exception.Message))" -ForegroundColor DarkYellow
+    }
+}
+
+function Update-IfNeeded {
+    # Quick check (<=10s) whether GitHub has a newer version; if so run the installer to update + rebuild.
+    # Never blocks launching: any failure just falls through to the installed version.
+    try {
+        $h = @{ "Accept" = "application/vnd.github.sha"; "User-Agent" = "udst-schedule-planner-launcher" }
+        $raw = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/commits/main" -Headers $h -TimeoutSec 10 -UseBasicParsing
+        $remote = ("$raw").Trim()
+        if ($remote -notmatch "^[0-9a-f]{40}$") { return }
+        $vf = Join-Path $InstallDir "version.txt"
+        $local = $null
+        if (Test-Path $vf) { $local = (Get-Content $vf | Select-Object -First 1) }
+        if ($local -eq $remote) { return }
+        Write-Host "  New version found - updating automatically (one-time, ~1 min)..." -ForegroundColor Cyan
+        $env:UDST_UPDATE = "1"; $env:UDST_NO_LAUNCH = "1"
+        & powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/$Repo/main/install.ps1 | iex"
+        if ($LASTEXITCODE -ne 0) { Write-Host "  Update failed; starting the installed version." -ForegroundColor Yellow }
+    } catch {
+        Write-Host "  (Update check skipped: $($_.Exception.Message))" -ForegroundColor DarkYellow
+    } finally {
+        Remove-Item Env:\UDST_UPDATE, Env:\UDST_NO_LAUNCH -ErrorAction SilentlyContinue
     }
 }
 
@@ -80,6 +104,11 @@ for ($p = $Base; $p -lt $Base + 10; $p++) {
         continue
     }
     $port = $p; break
+}
+if ($port) {
+    # Not already running: safe to update (the installer stops nothing that is in use).
+    Update-IfNeeded
+    if (-not (Test-Path $Exe)) { Write-Host "  [ERROR] Missing $Exe after update. Re-run the installer." -ForegroundColor Red; Pause-Exit 1 }
 }
 if (-not $port) {
     Write-Host "  [ERROR] Ports $Base-$($Base+9) are all busy. Close other programs and retry." -ForegroundColor Red

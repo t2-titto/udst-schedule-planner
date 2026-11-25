@@ -1,7 +1,9 @@
 # UDST Schedule Planner -- Windows Installer (PowerShell, No Admin Required)
 # Usage:  irm https://raw.githubusercontent.com/t2-titto/udst-schedule-planner/main/install.ps1 | iex
 # Safe to re-run: skips anything already installed, re-verifies, and just launches.
+# Auto-updates: compares the installed version with the latest on GitHub and updates + rebuilds only when newer.
 # Force re-download + rebuild:  $env:UDST_UPDATE = "1"; irm <url> | iex
+# $env:UDST_NO_LAUNCH = "1" installs/updates without opening the planner (used by the launcher).
 
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -15,6 +17,8 @@ $CargoBin   = Join-Path $env:USERPROFILE ".cargo\bin"
 $ExePath    = Join-Path $AppDir "server\target\release\schedule-planner-server.exe"
 $Launcher   = Join-Path $InstallDir "Start-UDST-Planner.bat"
 $Update     = ($env:UDST_UPDATE -eq "1")
+$NoLaunch   = ($env:UDST_NO_LAUNCH -eq "1")
+$VersionFile = Join-Path $InstallDir "version.txt"
 
 function Step($n, $msg) { Write-Host "  [$n/5] " -ForegroundColor Cyan -NoNewline; Write-Host $msg -ForegroundColor White }
 function Ok($msg)   { Write-Host "        [OK] $msg" -ForegroundColor Green }
@@ -31,6 +35,16 @@ function Download($url, $dest) {
         try { Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing; return }
         catch { if ($i -eq 3) { throw "Download failed ($url): $($_.Exception.Message). Check your internet connection / VPN / proxy." }; Start-Sleep -Seconds (2 * $i) }
     }
+}
+function Get-RemoteSha {
+    # Latest commit SHA of main on GitHub; $null if offline / rate-limited (then we just keep what is installed).
+    try {
+        $h = @{ "Accept" = "application/vnd.github.sha"; "User-Agent" = "udst-schedule-planner-installer" }
+        $s = (Invoke-RestMethod -Uri "https://api.github.com/repos/t2-titto/udst-schedule-planner/commits/main" -Headers $h -TimeoutSec 10 -UseBasicParsing)
+        $s = ("$s").Trim()
+        if ($s -match "^[0-9a-f]{40}$") { return $s }
+    } catch {}
+    return $null
 }
 function Stop-Planner {
     # Stop only OUR server (running from $ExePath) so the .exe is not locked.
@@ -58,10 +72,20 @@ try {
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
     $alreadyBuilt = (Test-Path $ExePath) -and (Test-Path (Join-Path $AppDir "frontend\dist\index.html")) -and (Test-Path (Join-Path $AppDir "launch.ps1"))
 
+    $RemoteSha = Get-RemoteSha
+    $LocalSha = $null
+    if (Test-Path $VersionFile) { $LocalSha = (Get-Content $VersionFile -ErrorAction SilentlyContinue | Select-Object -First 1) }
+    if ($alreadyBuilt -and $RemoteSha -and $RemoteSha -ne $LocalSha) {
+        Info "New version available ($($RemoteSha.Substring(0,7))); updating automatically..."
+        $Update = $true
+    } elseif ($alreadyBuilt -and -not $RemoteSha) {
+        Info "Could not check for updates (offline?); using the installed version."
+    }
+
     # 1. Download source
     Step 1 "Checking app files in $InstallDir..."
     if ($alreadyBuilt -and -not $Update) {
-        Ok "Already downloaded. (Set `$env:UDST_UPDATE='1' and re-run to update.)"
+        Ok "Already downloaded and up to date."
     } else {
         Stop-Planner
         $ZipFile    = Join-Path $env:TEMP "udst-schedule-planner-main.zip"
@@ -140,6 +164,7 @@ try {
         try { Run-Native cargo @("build","--release") "cargo build" } finally { Pop-Location }
         if (-not (Test-Path $ExePath)) { throw "Built binary not found at $ExePath" }
         Ok "Built $ExePath"
+        if ($RemoteSha) { Set-Content -Path $VersionFile -Value $RemoteSha -Encoding ASCII }
     } else {
         Ok "Binary present: $ExePath"
     }
@@ -159,7 +184,7 @@ try {
     Write-Host "    or run:  cmd /c `"$Launcher`""                                -ForegroundColor Cyan
     Write-Host "  ============================================================" -ForegroundColor Green
     Write-Host ""
-    Start-Process -FilePath "cmd.exe" -ArgumentList "/k", "`"$Launcher`""
+    if (-not $NoLaunch) { Start-Process -FilePath "cmd.exe" -ArgumentList "/k", "`"$Launcher`"" }
 } finally {
     if ($Mutex) { $Mutex.ReleaseMutex(); $Mutex.Dispose() }
 }
