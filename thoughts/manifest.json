@@ -1,0 +1,22 @@
+{
+  "format": "thoughts-export-v1",
+  "project": {
+    "id": "77d2ea38-bcfc-422d-a47b-e99b84493a61",
+    "name": "udst-schedule-planner",
+    "repositoryUrl": null
+  },
+  "maps": [
+    {
+      "workspaceId": "60d13608-be2d-43f7-af5f-03def7f5675d",
+      "title": "Overview (imported)",
+      "version": null,
+      "revision": 2,
+      "markdown": "overview-imported.md",
+      "json": "overview-imported.json",
+      "sha256": {
+        "markdown": "5e6e29856bf9ce289a78f8458dd2906952d55700fd70638cd6071497aef01f06",
+        "json": "d5e980e042c89ec704c8cae504933338e87e68e14905db20dfea613c614a0436"
+      }
+    }
+  ]
+}
