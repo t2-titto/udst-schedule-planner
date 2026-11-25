@@ -72,6 +72,7 @@ try {
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
     $alreadyBuilt = (Test-Path $ExePath) -and (Test-Path (Join-Path $AppDir "frontend\dist\index.html")) -and (Test-Path (Join-Path $AppDir "launch.ps1"))
 
+    $Downloaded = $false
     $RemoteSha = Get-RemoteSha
     $LocalSha = $null
     if (Test-Path $VersionFile) { $LocalSha = (Get-Content $VersionFile -ErrorAction SilentlyContinue | Select-Object -First 1) }
@@ -103,13 +104,14 @@ try {
         if ($LASTEXITCODE -ge 8) { throw "Copying app files failed (robocopy code $LASTEXITCODE). Is a file open in another program?" }
         Remove-Item -Force $ZipFile -ErrorAction SilentlyContinue
         Remove-Item -Recurse -Force $ExtractDir -ErrorAction SilentlyContinue
+        $Downloaded = $true
         Ok "Downloaded app and prebuilt web UI."
     }
 
     # 2. Rust toolchain
     Step 2 "Checking Rust toolchain..."
     if (Test-Path $CargoBin) { $env:PATH = "$CargoBin;$env:PATH" }
-    $needBuild = $Update -or -not (Test-Path $ExePath)
+    $needBuild = $Update -or $Downloaded -or -not (Test-Path $ExePath)
     $hasCargo = Get-Command cargo -ErrorAction SilentlyContinue
     $hostInfo = ""
     if ($hasCargo) {
