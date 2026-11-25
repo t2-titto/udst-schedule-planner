@@ -4,7 +4,7 @@ A fast, local-only schedule and degree planner for UDST students. Runs entirely 
 
 ## One-Line Install (Windows, No Admin)
 
-Choose any of the three installers below (all install into `%LOCALAPPDATA%\udst-schedule-planner`, build locally using official signed Rust tools so there are no unsigned `.exe` downloads, create a Desktop shortcut, and open `http://localhost:8787`):
+Choose any of the three installers below (all share the same re-runnable logic and install into `%LOCALAPPDATA%\udst-schedule-planner`, build locally using official signed Rust tools so there are no unsigned `.exe` downloads, create a Desktop shortcut, and open `http://localhost:8787`):
 
 ### Option 1: PowerShell (Recommended)
 ```powershell
@@ -20,6 +20,42 @@ curl -fsSL https://raw.githubusercontent.com/t2-titto/udst-schedule-planner/main
 ```cmd
 python -c "import urllib.request; exec(urllib.request.urlopen('https://raw.githubusercontent.com/t2-titto/udst-schedule-planner/main/install.py').read())"
 ```
+
+## Running It Again (after closing the computer, restarting, etc.)
+
+You do **not** need to reinstall. Everything stays in `%LOCALAPPDATA%\udst-schedule-planner`. Pick one:
+
+1. **Double-click** the **UDST Schedule Planner** shortcut on your Desktop (easiest).
+2. **One command** (Command Prompt or PowerShell):
+   ```cmd
+   "%LOCALAPPDATA%\udst-schedule-planner\Start-UDST-Planner.bat"
+   ```
+3. **Lost the shortcut or something looks broken?** Re-run the install command above. It is safe to run any number of times: it detects what is already downloaded and built, re-checks it, repairs the launcher/shortcut, and launches. It does **not** re-download or recompile.
+
+Keep the black window open while using the planner; closing it (or Ctrl+C) stops the server.
+
+### Updating to the newest version
+```powershell
+$env:UDST_UPDATE = "1"; irm https://raw.githubusercontent.com/t2-titto/udst-schedule-planner/main/install.ps1 | iex
+```
+This re-downloads the code, stops the old server if it is running, and rebuilds (fast, the build cache is kept).
+
+### Edge cases handled
+| Situation | What happens |
+|---|---|
+| Already installed | Installer skips download/build, repairs shortcut, launches |
+| Planner already running | Launcher just opens your browser to it (no duplicate server) |
+| Port 8787 used by another program | Launcher automatically uses the next free port (8788-8796) and opens that URL |
+| Updating while the server is running | Installer stops only this app's server first so the `.exe` isn't locked |
+| Installer started twice at once | Second one exits with a message |
+| Interrupted / corrupt download, half-extracted MinGW | Detected and re-downloaded on next run; downloads retry 3 times |
+| Rust already installed (any toolchain) | Reused; only installed if missing |
+| Deleted Desktop shortcut | Recreated (never duplicated) |
+
+### Troubleshooting
+- **"Not installed yet"**: run the install command once.
+- **Windows Firewall / antivirus prompt**: the server only listens on `127.0.0.1` (this PC); it is safe to allow or ignore.
+- **Fresh start**: delete the `%LOCALAPPDATA%\udst-schedule-planner` folder and the Desktop shortcut, then re-run the install command.
 
 ## Features
 - **Local & Private:** Credentials stay in memory only and are never saved to disk or sent anywhere except UDST PeopleSoft.
