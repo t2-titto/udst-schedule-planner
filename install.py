@@ -86,10 +86,17 @@ def main() -> None:
         need_gnu = True
         ok(f"Installed Rust in {CARGO_BIN}")
     else:
-        vv = subprocess.check_output(["rustc", "-vV"], env=env, text=True)
-        if "gnu" in vv.lower():
+        proc = subprocess.run(["rustc", "-vV"], env=env, text=True, capture_output=True)
+        if proc.returncode != 0:
+            print("        Rustup found without a default toolchain; installing stable-x86_64-pc-windows-gnu...")
+            subprocess.run(["rustup", "toolchain", "install", "stable-x86_64-pc-windows-gnu", "--profile", "minimal"], env=env, check=True)
+            subprocess.run(["rustup", "default", "stable-x86_64-pc-windows-gnu"], env=env, check=True)
             need_gnu = True
-        ok("Found existing Cargo.")
+            ok("Configured default Rust GNU toolchain.")
+        else:
+            if "gnu" in proc.stdout.lower():
+                need_gnu = True
+            ok("Found existing Cargo.")
 
     if need_gnu:
         mingw_bin = os.path.join(MINGW_DIR, "bin")

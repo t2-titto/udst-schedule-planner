@@ -54,18 +54,43 @@ Ok "Downloaded app and prebuilt web UI."
 Step 2 "Checking Rust toolchain (no admin required)..."
 if (Test-Path $CargoBin) { $env:PATH = "$CargoBin;$env:PATH" }
 $hasCargo = Get-Command cargo -ErrorAction SilentlyContinue
+$hasRustup = Get-Command rustup -ErrorAction SilentlyContinue
 $needGnu = $false
+$hostInfo = ""
+if ($hasCargo) {
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $out = (& rustc -vV 2>&1 | Out-String)
+    $rc = $LASTEXITCODE
+    $ErrorActionPreference = $prev
+    if ($rc -eq 0 -and $out -match "host:\s*(\S+)") {
+        $hostInfo = $Matches[1]
+    }
+}
 if (-not $hasCargo) {
     Info "Installing official signed Rust toolchain (GNU target, user-only)..."
     $Rustup = Join-Path $env:TEMP "rustup-init.exe"
     Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile $Rustup -UseBasicParsing
-    & $Rustup -y --default-host x86_64-pc-windows-gnu --profile minimal --no-modify-path | Out-Null
+    $prev = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    & $Rustup -y --default-host x86_64-pc-windows-gnu --profile minimal --no-modify-path
+    $rc = $LASTEXITCODE
+    $ErrorActionPreference = $prev
     Remove-Item -Force $Rustup -ErrorAction SilentlyContinue
+    if ($rc -ne 0) { throw "rustup-init failed with exit code $rc" }
     $env:PATH = "$CargoBin;$env:PATH"
     $needGnu = $true
     Ok "Installed Rust in $env:USERPROFILE\.cargo"
+} elseif (-not $hostInfo) {
+    Info "Rustup found without a default toolchain; installing stable-x86_64-pc-windows-gnu..."
+    $prev = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    & rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal
+    & rustup default stable-x86_64-pc-windows-gnu
+    $rc = $LASTEXITCODE
+    $ErrorActionPreference = $prev
+    if ($rc -ne 0) { throw "rustup toolchain install failed with exit code $rc" }
+    $needGnu = $true
+    Ok "Configured default Rust GNU toolchain."
 } else {
-    $hostInfo = (& rustc -vV 2>$null | Select-String "host:").ToString()
     if ($hostInfo -match "gnu") { $needGnu = $true }
     Ok "Found existing Cargo ($hostInfo)."
 }
@@ -88,8 +113,11 @@ if ($needGnu) {
 Step 3 "Compiling local server binary (first build takes ~1-2 minutes)..."
 Push-Location (Join-Path $AppDir "server")
 try {
+    $prev = $ErrorActionPreference; $ErrorActionPreference = "Continue"
     & cargo build --release
-    if ($LASTEXITCODE -ne 0) { throw "cargo build failed with exit code $LASTEXITCODE" }
+    $rc = $LASTEXITCODE
+    $ErrorActionPreference = $prev
+    if ($rc -ne 0) { throw "cargo build failed with exit code $rc" }
 } finally {
     Pop-Location
 }
