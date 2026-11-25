@@ -25,13 +25,13 @@ python -c "import urllib.request; exec(urllib.request.urlopen('https://raw.githu
 
 You do **not** need to reinstall. Everything stays in `C:\Users\<you>\AppData\Local\udst-schedule-planner`. Pick one:
 
-1. **Double-click** the **UDST Schedule Planner** shortcut on your Desktop (easiest).
+1. **Press `Ctrl+Alt+U`** (keyboard shortcut), or **double-click** the **UDST Schedule Planner** shortcut on your Desktop / Start Menu.
 2. **One command** - works the same in **PowerShell and Command Prompt** (copy it exactly, including `cmd /c`):
    ```
    cmd /c "%LOCALAPPDATA%\udst-schedule-planner\Start-UDST-Planner.bat"
    ```
    > Do not type just the folder path, and do not use `%LOCALAPPDATA%` by itself in PowerShell (it only expands in Command Prompt; the `cmd /c` above handles it for you).
-3. **Lost the shortcut or something looks broken?** Re-run the install command above. It is safe to run any number of times: it detects what is already downloaded and built, re-checks it, repairs the launcher/shortcut, and launches. It does **not** re-download or recompile.
+3. **Lost the shortcut?** Just launch the planner any way above: every launch automatically recreates a missing Desktop/Start Menu shortcut and the `Ctrl+Alt+U` key. No reinstall needed. **If something else looks broken**, re-run the install command above. It is safe to run any number of times: it detects what is already downloaded and built, re-checks it, repairs the launcher/shortcut, and launches. It does **not** re-download or recompile.
 
 Keep the black window open while using the planner; closing it (or Ctrl+C) stops the server.
 
@@ -51,10 +51,10 @@ This re-downloads the code, stops the old server if it is running, and rebuilds 
 | Installer started twice at once | Second one exits with a message |
 | Interrupted / corrupt download, half-extracted MinGW | Detected and re-downloaded on next run; downloads retry 3 times |
 | Rust already installed (any toolchain) | Reused; only installed if missing |
-| Deleted Desktop shortcut | Recreated (never duplicated) |
+| Deleted Desktop/Start Menu shortcut or `Ctrl+Alt+U` | Recreated automatically on the next launch (never duplicated) |
 
 ### Troubleshooting
-- **"Not installed yet"**: run the install command once.
+- **"Not installed yet"**, or you installed before `Ctrl+Alt+U` existed: run the install command once (it skips the build if already built).
 - **Windows Firewall / antivirus prompt**: the server only listens on `127.0.0.1` (this PC); it is safe to allow or ignore.
 - **Fresh start**: delete the folder `C:\Users\<you>\AppData\Local\udst-schedule-planner` and the Desktop shortcut, then re-run the install command.
 

@@ -146,24 +146,16 @@ try {
 
     # 4. Launcher + shortcut (always rewritten: cheap, repairs deleted/broken ones, never duplicates)
     Step 4 "Checking launcher and Desktop shortcut..."
-    $LauncherContent = "@echo off`r`ntitle UDST Schedule Planner`r`npowershell -NoProfile -ExecutionPolicy Bypass -File `"$AppDir\launch.ps1`"`r`n"
-    Set-Content -Path $Launcher -Value $LauncherContent -Encoding ASCII
-    try {
-        $Wsh = New-Object -ComObject WScript.Shell
-        $Desktop = [Environment]::GetFolderPath("Desktop")
-        $Shortcut = $Wsh.CreateShortcut((Join-Path $Desktop "UDST Schedule Planner.lnk"))
-        $Shortcut.TargetPath = $Launcher
-        $Shortcut.WorkingDirectory = Join-Path $AppDir "server"
-        $Shortcut.Description = "UDST Schedule & Degree Planner (http://localhost:8787)"
-        $Shortcut.Save()
-        Ok "Desktop shortcut ready: UDST Schedule Planner"
-    } catch { Info "Skipped Desktop shortcut (run: cmd /c `"$Launcher`")." }
+    # launch.ps1 owns launcher + shortcut creation (same code the launcher uses to self-heal)
+    Run-Native powershell @("-NoProfile","-ExecutionPolicy","Bypass","-File",(Join-Path $AppDir "launch.ps1"),"-SetupOnly") "shortcut setup"
+    if (-not (Test-Path $Launcher)) { throw "Launcher was not created at $Launcher" }
+    Ok "Launcher + Desktop/Start Menu shortcuts ready. Keyboard shortcut: Ctrl+Alt+U"
 
     # 5. Launch (launcher handles 'already running' and busy ports)
     Step 5 "Launching..."
     Write-Host ""
     Write-Host "  ============================================================" -ForegroundColor Green
-    Write-Host "    Ready!  Next time just double-click the Desktop shortcut,"   -ForegroundColor White
+    Write-Host "    Ready!  Next time press Ctrl+Alt+U, or double-click the Desktop shortcut,"   -ForegroundColor White
     Write-Host "    or run:  cmd /c `"$Launcher`""                                -ForegroundColor Cyan
     Write-Host "  ============================================================" -ForegroundColor Green
     Write-Host ""
