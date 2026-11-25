@@ -1,4 +1,4 @@
-﻿# UDST Schedule Planner — Windows Installer (PowerShell, No Admin Required)
+# UDST Schedule Planner -- Windows Installer (PowerShell, No Admin Required)
 # Usage: irm https://raw.githubusercontent.com/t2-titto/udst-schedule-planner/main/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
