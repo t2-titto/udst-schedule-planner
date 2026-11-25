@@ -1,5 +1,5 @@
 # UDST Schedule Planner -- launcher (safe to run any time, any number of times)
-# Run:  powershell -NoProfile -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\udst-schedule-planner\app\launch.ps1"
+# Run:  powershell -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\udst-schedule-planner\app\launch.ps1"
 $ErrorActionPreference = "Stop"
 $AppDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Exe    = Join-Path $AppDir "server\target\release\schedule-planner-server.exe"

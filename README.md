@@ -4,7 +4,7 @@ A fast, local-only schedule and degree planner for UDST students. Runs entirely 
 
 ## One-Line Install (Windows, No Admin)
 
-Choose any of the three installers below (all share the same re-runnable logic and install into `%LOCALAPPDATA%\udst-schedule-planner`, build locally using official signed Rust tools so there are no unsigned `.exe` downloads, create a Desktop shortcut, and open `http://localhost:8787`):
+Choose any of the three installers below (all share the same re-runnable logic and install into `C:\Users\<you>\AppData\Local\udst-schedule-planner`, build locally using official signed Rust tools so there are no unsigned `.exe` downloads, create a Desktop shortcut, and open `http://localhost:8787`):
 
 ### Option 1: PowerShell (Recommended)
 ```powershell
@@ -23,13 +23,14 @@ python -c "import urllib.request; exec(urllib.request.urlopen('https://raw.githu
 
 ## Running It Again (after closing the computer, restarting, etc.)
 
-You do **not** need to reinstall. Everything stays in `%LOCALAPPDATA%\udst-schedule-planner`. Pick one:
+You do **not** need to reinstall. Everything stays in `C:\Users\<you>\AppData\Local\udst-schedule-planner`. Pick one:
 
 1. **Double-click** the **UDST Schedule Planner** shortcut on your Desktop (easiest).
-2. **One command** (Command Prompt or PowerShell):
-   ```cmd
-   "%LOCALAPPDATA%\udst-schedule-planner\Start-UDST-Planner.bat"
+2. **One command** - works the same in **PowerShell and Command Prompt** (copy it exactly, including `cmd /c`):
    ```
+   cmd /c "%LOCALAPPDATA%\udst-schedule-planner\Start-UDST-Planner.bat"
+   ```
+   > Do not type just the folder path, and do not use `%LOCALAPPDATA%` by itself in PowerShell (it only expands in Command Prompt; the `cmd /c` above handles it for you).
 3. **Lost the shortcut or something looks broken?** Re-run the install command above. It is safe to run any number of times: it detects what is already downloaded and built, re-checks it, repairs the launcher/shortcut, and launches. It does **not** re-download or recompile.
 
 Keep the black window open while using the planner; closing it (or Ctrl+C) stops the server.
@@ -55,7 +56,7 @@ This re-downloads the code, stops the old server if it is running, and rebuilds 
 ### Troubleshooting
 - **"Not installed yet"**: run the install command once.
 - **Windows Firewall / antivirus prompt**: the server only listens on `127.0.0.1` (this PC); it is safe to allow or ignore.
-- **Fresh start**: delete the `%LOCALAPPDATA%\udst-schedule-planner` folder and the Desktop shortcut, then re-run the install command.
+- **Fresh start**: delete the folder `C:\Users\<you>\AppData\Local\udst-schedule-planner` and the Desktop shortcut, then re-run the install command.
 
 ## Features
 - **Local & Private:** Credentials stay in memory only and are never saved to disk or sent anywhere except UDST PeopleSoft.

@@ -157,14 +157,14 @@ try {
         $Shortcut.Description = "UDST Schedule & Degree Planner (http://localhost:8787)"
         $Shortcut.Save()
         Ok "Desktop shortcut ready: UDST Schedule Planner"
-    } catch { Info "Skipped Desktop shortcut (run $Launcher directly)." }
+    } catch { Info "Skipped Desktop shortcut (run: cmd /c `"$Launcher`")." }
 
     # 5. Launch (launcher handles 'already running' and busy ports)
     Step 5 "Launching..."
     Write-Host ""
     Write-Host "  ============================================================" -ForegroundColor Green
     Write-Host "    Ready!  Next time just double-click the Desktop shortcut,"   -ForegroundColor White
-    Write-Host "    or run:  `"$Launcher`""                                       -ForegroundColor Cyan
+    Write-Host "    or run:  cmd /c `"$Launcher`""                                -ForegroundColor Cyan
     Write-Host "  ============================================================" -ForegroundColor Green
     Write-Host ""
     Start-Process -FilePath "cmd.exe" -ArgumentList "/k", "`"$Launcher`""
