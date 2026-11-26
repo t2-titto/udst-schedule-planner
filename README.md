@@ -73,3 +73,7 @@ $env:UDST_UPDATE = "1"; irm https://raw.githubusercontent.com/t2-titto/udst-sche
 - **Degree Planner + Prerequisites & Co-requisites:** Drag courses across semesters with live 18/12-credit checks, prerequisite warnings, and one-click co-requisite pairing.
 - **Multi-Account Support:** Use **Switch account** or open `http://localhost:6767` in a private window for a completely separate session.
 - **Safe Apply:** One review screen with fresh seat checks before every write step.
+
+## License
+
+**Proprietary - all rights reserved.** Free for personal, non-commercial use only. No commercial use, no reverse engineering, and no reuse of the code in any other app (commercial or not) without the developer's prior **written consent** (contact [t2-titto](https://github.com/t2-titto) on GitHub). You may share the unmodified installer link with other students. See [LICENSE](LICENSE) for the full terms.

@@ -1,0 +1,70 @@
+UDST SCHEDULE & DEGREE PLANNER -- PROPRIETARY LICENSE
+Copyright (c) 2026 t2-titto (GitHub: https://github.com/t2-titto). All rights reserved.
+
+The source code is visible on GitHub for transparency only. It is NOT open source.
+No license is granted except as expressly stated below.
+
+1. DEFINITIONS
+   "Software" means the UDST Schedule & Degree Planner: all source code, binaries,
+   scripts, installers, web interface, documentation and assets in this repository,
+   and any version or part of them. "Owner" means t2-titto, the developer.
+
+2. PERMITTED USE (no consent needed)
+   You may, free of charge and for your own personal, non-commercial purposes only:
+   (a) download and install the Software using the official installers in this
+       repository, and run it on your own computer; and
+   (b) share the official, UNMODIFIED installer command or link to this repository
+       with other people for the same personal, non-commercial use.
+
+3. PROHIBITED WITHOUT WRITTEN CONSENT
+   Unless you have prior WRITTEN CONSENT from the Owner, you may NOT:
+   (a) use the Software, or any part of it, for any commercial purpose, including
+       selling, licensing, renting, hosting it as a paid or ad-supported service,
+       bundling it with a paid product, or using it for business or revenue;
+   (b) reverse engineer, decompile, disassemble or otherwise attempt to derive the
+       source code, algorithms, logic or protocols of the Software, except to the
+       extent a law that cannot be waived allows it despite this restriction;
+   (c) copy, reuse, adapt, translate or incorporate any code, design, text or other
+       part of the Software in any other application, project, product or service,
+       whether commercial or non-commercial, open source or closed;
+   (d) modify the Software or create derivative works, or distribute modified
+       copies (forks made only to use GitHub's features are not a license to do so);
+   (e) use the Software or its code to train, fine-tune or evaluate any machine
+       learning or AI model, or to build datasets;
+   (f) remove or change this license or any copyright or attribution notice; or
+   (g) sublicense, or transfer any rights in the Software to anyone else.
+
+4. HOW TO ASK FOR CONSENT
+   Consent must be in writing, specific to the use requested, and given by the Owner.
+   Contact the Owner through the GitHub profile https://github.com/t2-titto or by
+   opening an issue in this repository. Silence, public availability of the code,
+   or the lack of enforcement is never consent.
+
+5. NO AFFILIATION; YOUR OWN RESPONSIBILITY
+   The Software is an independent project. It is not made, endorsed or supported by
+   UDST (University of Doha for Science and Technology) or by Oracle/PeopleSoft.
+   You are solely responsible for using it in line with your university's rules and
+   for what you do with your own account. Writes to PeopleSoft are off until you
+   explicitly review and approve them.
+
+6. NO WARRANTY; LIMITATION OF LIABILITY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, ACCURACY
+   AND NON-INFRINGEMENT. YOU USE IT AT YOUR OWN RISK. TO THE FULLEST EXTENT
+   PERMITTED BY LAW, THE OWNER IS NOT LIABLE FOR ANY CLAIM, DAMAGE, LOSS OF DATA,
+   SCHEDULING OR ENROLMENT ERRORS, OR OTHER LIABILITY ARISING FROM THE SOFTWARE OR
+   ITS USE.
+
+7. TERMINATION
+   Your rights under section 2 end automatically, without notice, if you breach this
+   license. You must then stop using the Software and delete all copies. Sections
+   3 to 8 survive termination.
+
+8. THIRD-PARTY COMPONENTS
+   The Software uses third-party open-source libraries (for example Rust crates and
+   npm packages). They remain under their own licenses, which are unaffected by this
+   license and apply to those components only.
+
+9. GENERAL
+   The Owner reserves all rights not expressly granted. If any part of this license
+   is unenforceable, the rest stays in effect.
