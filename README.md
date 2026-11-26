@@ -87,6 +87,10 @@ that. The actual protection against copying, reverse engineering, or reuse is th
 [LICENSE](LICENSE): it is legally required, hardening above is just a technical
 speed bump on top of it.
 
+## Disclaimer
+
+This is an independent, student-built tool, **not affiliated with, endorsed by, or supported by UDST or Oracle/PeopleSoft**. It is a planning aid, not official academic advice -- always verify your final schedule and degree plan in PeopleSoft and with your advisor. Nothing is written to PeopleSoft until you explicitly review and approve it; once approved, you are responsible for that action and for following UDST's own policies on using it. Provided "as is," with no warranty, used at your own risk. See [DISCLAIMER.md](DISCLAIMER.md) for the full terms.
+
 ## License
 
 **Proprietary - all rights reserved.** Free for personal, non-commercial use only. No commercial use, no reverse engineering, and no reuse of the code in any other app (commercial or not) without the developer's prior **written consent** (contact [t2-titto](https://github.com/t2-titto) on GitHub). You may share the unmodified installer link with other students. See [LICENSE](LICENSE) for the full terms.
