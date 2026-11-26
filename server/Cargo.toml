@@ -20,3 +20,8 @@ frankie-auth = { path = "../crates/frankie-auth" }
 
 [profile.release]
 opt-level = 2
+# Strips debug symbols and merges codegen units: makes a disassembled binary much harder to
+# follow (no file/line/symbol names, heavier inlining) at no cost to correctness or speed.
+strip = true
+lto = true
+codegen-units = 1

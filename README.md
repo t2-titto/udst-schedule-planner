@@ -74,6 +74,19 @@ $env:UDST_UPDATE = "1"; irm https://raw.githubusercontent.com/t2-titto/udst-sche
 - **Multi-Account Support:** Use **Switch account** or open `http://localhost:6767` in a private window for a completely separate session.
 - **Safe Apply:** One review screen with fresh seat checks before every write step.
 
+## Code hardening (what it does and doesn't do)
+
+The shipped binary is built with `strip = true`, `lto = true`, `codegen-units = 1`
+(stripped debug symbols, heavier inlining) and the web UI is minified with Terser
+(mangled names, no comments). This raises the effort needed to read the *shipped*
+binary/JS back into something meaningful.
+
+**It does not, and cannot, stop someone from reading the source on GitHub itself** --
+the repo is public for transparency, and no amount of binary/JS hardening changes
+that. The actual protection against copying, reverse engineering, or reuse is the
+[LICENSE](LICENSE): it is legally required, hardening above is just a technical
+speed bump on top of it.
+
 ## License
 
 **Proprietary - all rights reserved.** Free for personal, non-commercial use only. No commercial use, no reverse engineering, and no reuse of the code in any other app (commercial or not) without the developer's prior **written consent** (contact [t2-titto](https://github.com/t2-titto) on GitHub). You may share the unmodified installer link with other students. See [LICENSE](LICENSE) for the full terms.
