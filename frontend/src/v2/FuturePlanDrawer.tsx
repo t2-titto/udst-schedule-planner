@@ -369,6 +369,7 @@ export function FuturePlanDrawer(props: Props) {
                         onContextMenu={(e) => {
                           if (!onRetakeCourse) return
                           e.preventDefault()
+                          e.stopPropagation()
                           setRetakeMenuCode((cur) => (cur === c.code ? null : c.code))
                         }}
                       >

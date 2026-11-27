@@ -148,6 +148,17 @@ function writeFavTeachers(accountId: string | null | undefined, favs: string[]):
   } catch { /* ignore */ }
 }
 
+interface ContextMenuState {
+  vx: number
+  vy: number
+  kind: 'block' | 'planned' | 'eligible' | 'page'
+  code?: string
+  sec?: string
+  comp?: string
+}
+
+const clampPct = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n))
+
 type Screen = 'login' | 'setup' | 'workspace' | 'apply' | 'done'
 
 export function App() {
@@ -223,6 +234,7 @@ export function App() {
   const [justAddedCourse, setJustAddedCourse] = useState<string | null>(null)
   const [addNotice, setAddNotice] = useState<string | null>(null)
   const [pendingPartialPick, setPendingPartialPick] = useState<SuggestionCard | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null)
   const addedTimerRef = useRef<number | null>(null)
   const morphCaptureRef = useRef<((mode: 'schedule' | 'layout') => void) | null>(null)
   const [classStatuses, setClassStatuses] = useState<Record<string, { term: string; status: string }>>({})
@@ -1044,6 +1056,50 @@ export function App() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [screen, handleUndo, handleRedo])
 
+  useEffect(() => {
+    const onContext = (e: globalThis.MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return
+      }
+      e.preventDefault()
+      const hit = target?.closest?.('[data-ctx-kind]') as HTMLElement | null
+      const rawKind = hit?.dataset.ctxKind
+      const kind: ContextMenuState['kind'] =
+        rawKind === 'block' || rawKind === 'planned' || rawKind === 'eligible' ? rawKind : 'page'
+      const vw = Math.max(window.innerWidth || 1280, 1)
+      const vh = Math.max(window.innerHeight || 800, 1)
+      const vx = clampPct(Math.round((e.clientX / vw) * 100), 2, 74)
+      const vy = clampPct(Math.round((e.clientY / vh) * 100), 2, 68)
+      setCtxMenu({
+        vx,
+        vy,
+        kind,
+        code: hit?.dataset.ctxCode,
+        sec: hit?.dataset.ctxSec,
+        comp: hit?.dataset.ctxComp,
+      })
+    }
+    const dismiss = () => setCtxMenu(null)
+    const onPointerDown = (e: Event) => {
+      const t = (e.target as HTMLElement | null)?.closest?.('.ctx-menu')
+      if (!t) dismiss()
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setCtxMenu(null) }
+    window.addEventListener('contextmenu', onContext)
+    window.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('scroll', dismiss, true)
+    window.addEventListener('resize', dismiss)
+    return () => {
+      window.removeEventListener('contextmenu', onContext)
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('scroll', dismiss, true)
+      window.removeEventListener('resize', dismiss)
+    }
+  }, [])
+
   const suggestions = useMemo(
     () => buildSuggestions(filterCoursesForSolver, state, settings, setup, favTeachers),
     [filterCoursesForSolver, state, settings, setup, favTeachers],
@@ -1064,74 +1120,203 @@ export function App() {
     return swaps + enrols + drops + Object.keys(moveDrafts).length
   }, [courses, state, moveDrafts])
 
+  const renderCtxMenu = () => {
+    if (!ctxMenu) return null
+    const ctxCourse = ctxMenu.code ? courses.find((c) => c.code === ctxMenu.code) : undefined
+    const ctxCompat = ctxMenu.code ? compatibleList.find((c) => c.code === ctxMenu.code) : undefined
+    const isRemoved = ctxCourse ? state.removed.includes(ctxCourse.code) : false
+    const isLockedCourse = ctxCourse ? !state.unlocked.includes(ctxCourse.code) && !!ctxCourse.held : false
+    const closeAnd = (fn: () => void) => () => { setCtxMenu(null); fn() }
+
+    return (
+      <nav
+        className={`ctx-menu fx-${ctxMenu.vx} fy-${ctxMenu.vy}`}
+        role="menu"
+        aria-label="Custom context menu"
+      >
+        <div className="ctx-menu-head">
+          {ctxMenu.code
+            ? `${ctxMenu.code}${ctxMenu.comp ? ` · ${ctxMenu.comp}` : ''}${ctxMenu.sec ? ` · Sec ${ctxMenu.sec}` : ''}`
+            : 'Planie'}
+        </div>
+        {ctxMenu.code && ctxCourse ? (
+          <>
+            <button type="button" role="menuitem" className="ctx-menu-item" onClick={closeAnd(() => setInspectedCalendarCode(ctxCourse.code))}>
+              {ctxMenu.kind === 'block' ? 'Pick or swap section' : 'Open course details'}
+            </button>
+            {ctxCourse.held ? (
+              <button
+                type="button"
+                role="menuitem"
+                className="ctx-menu-item"
+                onClick={closeAnd(() => setState((s) => ({
+                  ...s,
+                  unlocked: s.unlocked.includes(ctxCourse.code)
+                    ? s.unlocked.filter((u) => u !== ctxCourse.code)
+                    : [...s.unlocked, ctxCourse.code],
+                })))}
+              >
+                {isLockedCourse ? 'Unlock section' : 'Lock section'}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              role="menuitem"
+              className="ctx-menu-item"
+              onClick={closeAnd(() => {
+                morphCaptureRef.current?.('schedule')
+                setState((s) => ({
+                  ...s,
+                  removed: s.removed.includes(ctxCourse.code)
+                    ? s.removed.filter((r) => r !== ctxCourse.code)
+                    : [...s.removed, ctxCourse.code],
+                }))
+              })}
+            >
+              {isRemoved ? 'Restore to timetable' : 'Remove from timetable'}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="ctx-menu-item"
+              onClick={closeAnd(() => { void navigator.clipboard?.writeText(ctxCourse.code).catch(() => {}) })}
+            >
+              Copy {ctxCourse.code}
+            </button>
+            <div className="ctx-menu-sep" aria-hidden="true" />
+          </>
+        ) : ctxMenu.code && ctxCompat ? (
+          <>
+            <button type="button" role="menuitem" className="ctx-menu-item" onClick={closeAnd(() => void addCompatibleCourse(ctxCompat, false))}>
+              + Add to {term}
+            </button>
+            {ctxCompat.coreqs.length > 0 ? (
+              <button type="button" role="menuitem" className="ctx-menu-item" onClick={closeAnd(() => void addCompatibleCourse(ctxCompat, true))}>
+                + Add with {ctxCompat.coreqs[0]}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              role="menuitem"
+              className="ctx-menu-item"
+              onClick={closeAnd(() => { void navigator.clipboard?.writeText(ctxCompat.code).catch(() => {}) })}
+            >
+              Copy {ctxCompat.code}
+            </button>
+            <div className="ctx-menu-sep" aria-hidden="true" />
+          </>
+        ) : null}
+
+        {screen === 'workspace' ? (
+          <>
+            <button type="button" role="menuitem" className="ctx-menu-item" disabled={!canUndo} onClick={closeAnd(handleUndo)}>
+              Undo (Ctrl+Z)
+            </button>
+            <button type="button" role="menuitem" className="ctx-menu-item" disabled={!canRedo} onClick={closeAnd(handleRedo)}>
+              Redo (Ctrl+Y)
+            </button>
+            <button type="button" role="menuitem" className="ctx-menu-item" onClick={closeAnd(() => {
+              morphCaptureRef.current?.('layout')
+              setSidebarOpen((x) => !x)
+            })}>
+              {sidebarOpen ? 'Hide courses panel' : 'Show courses panel'}
+            </button>
+            <button type="button" role="menuitem" className="ctx-menu-item" onClick={closeAnd(() => setFutureDrawerOpen(true))}>
+              Future Plan
+            </button>
+            <button type="button" role="menuitem" className="ctx-menu-item" onClick={closeAnd(() => setScreen('setup'))}>
+              Quick Setup / Tune
+            </button>
+          </>
+        ) : null}
+
+        <button type="button" role="menuitem" className="ctx-menu-item" onClick={closeAnd(toggleTheme)}>
+          {theme === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'}
+        </button>
+      </nav>
+    )
+  }
+
   if (screen === 'login') {
     return (
-      <Login
-        initialError={authError}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        onSignedIn={(st) => {
-          resetAccountWorkspace(true)
-          setStatus(st)
-          api.accounts().then((res) => setAccounts(res.accounts ?? [])).catch(() => {})
-          enterPostLogin(st, true)
-        }}
-        onSwitchAccount={(id) => void handleSwitchAccount(id)}
-      />
+      <>
+        <Login
+          initialError={authError}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onSignedIn={(st) => {
+            resetAccountWorkspace(true)
+            setStatus(st)
+            api.accounts().then((res) => setAccounts(res.accounts ?? [])).catch(() => {})
+            enterPostLogin(st, true)
+          }}
+          onSwitchAccount={(id) => void handleSwitchAccount(id)}
+        />
+        {renderCtxMenu()}
+      </>
     )
   }
 
   if (screen === 'setup') {
     return (
-      <SetupWait
-        setup={setup}
-        onChangeSetup={updateSetup}
-        showWaitlist={showWaitlist}
-        onToggleWaitlist={() => setShowWaitlist((x) => !x)}
-        showClosed={showClosed}
-        onToggleClosed={() => setShowClosed((x) => !x)}
-        stages={loadStages}
-        ready={bootReady}
-        error={loadError}
-        onRetry={() => void runBootstrap(false, { accountId: status?.accountId ?? null, userHint: status?.userHint ?? null })}
-        onContinue={() => setScreen('workspace')}
-        onSignOut={() => void handleSignOut()}
-        demo={status?.demo}
-        userHint={status?.userHint ?? null}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-      />
+      <>
+        <SetupWait
+          setup={setup}
+          onChangeSetup={updateSetup}
+          showWaitlist={showWaitlist}
+          onToggleWaitlist={() => setShowWaitlist((x) => !x)}
+          showClosed={showClosed}
+          onToggleClosed={() => setShowClosed((x) => !x)}
+          stages={loadStages}
+          ready={bootReady}
+          error={loadError}
+          onRetry={() => void runBootstrap(false, { accountId: status?.accountId ?? null, userHint: status?.userHint ?? null })}
+          onContinue={() => setScreen('workspace')}
+          onSignOut={() => void handleSignOut()}
+          demo={status?.demo}
+          userHint={status?.userHint ?? null}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        />
+        {renderCtxMenu()}
+      </>
     )
   }
 
   if (screen === 'apply') {
     return (
-      <Apply
-        term={term}
-        courses={courses}
-        state={state}
-        enrolled={enrolled}
-        degreeView={degreeView}
-        moveDrafts={moveDrafts}
-        planning={planning}
-        onBack={() => setScreen('workspace')}
-        onDone={(prog) => { setDoneProgress(prog); setScreen('done') }}
-        onRefresh={() => void runBootstrap(false, { accountId: status?.accountId ?? null, userHint: status?.userHint ?? null })}
-      />
+      <>
+        <Apply
+          term={term}
+          courses={courses}
+          state={state}
+          enrolled={enrolled}
+          degreeView={degreeView}
+          moveDrafts={moveDrafts}
+          planning={planning}
+          onBack={() => setScreen('workspace')}
+          onDone={(prog) => { setDoneProgress(prog); setScreen('done') }}
+          onRefresh={() => void runBootstrap(false, { accountId: status?.accountId ?? null, userHint: status?.userHint ?? null })}
+        />
+        {renderCtxMenu()}
+      </>
     )
   }
 
   if (screen === 'done' && doneProgress) {
     return (
-      <Done
-        term={term}
-        courses={courses}
-        state={state}
-        progress={doneProgress}
-        onBack={() => setScreen('workspace')}
-        onSignOut={() => void handleSignOut()}
-        tileMap={tileMap}
-      />
+      <>
+        <Done
+          term={term}
+          courses={courses}
+          state={state}
+          progress={doneProgress}
+          onBack={() => setScreen('workspace')}
+          onSignOut={() => void handleSignOut()}
+          tileMap={tileMap}
+        />
+        {renderCtxMenu()}
+      </>
     )
   }
 
@@ -1438,6 +1623,7 @@ export function App() {
           </div>
         </div>
       ) : null}
+      {renderCtxMenu()}
     </div>
   )
 }

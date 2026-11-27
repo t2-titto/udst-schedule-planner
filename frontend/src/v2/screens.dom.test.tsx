@@ -716,11 +716,27 @@ describe('Planie redesigned UI & UX flows', () => {
 
     fireEvent.mouseEnter(labBtn)
     const peek = screen.getByRole('status')
+    expect(peek.className).toContain('cal-hover-tip')
     expect(peek.textContent).toContain('Biology I (Lab)')
     expect(peek.textContent).toContain('9:30a–11:30a')
     expect(peek.textContent).toContain('B2-204')
     fireEvent.mouseLeave(labBtn)
     expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('replaces default browser right-click menu site-wide with custom menu without opening modal popups', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.includes('/status')) {
+        return { ok: true, status: 200, text: async () => JSON.stringify({ signedIn: false, demo: false }) }
+      }
+      return { ok: true, status: 200, text: async () => JSON.stringify({ accounts: [], activeId: null }) }
+    }))
+    const { container } = render(<App />)
+    await screen.findByText(/Your classes/i)
+    fireEvent.contextMenu(container.firstElementChild!, { clientX: 120, clientY: 140 })
+    const menu = await screen.findByRole('menu', { name: 'Custom context menu' })
+    expect(menu).toBeTruthy()
+    expect(container.querySelector('.sheet-backdrop')).toBeNull()
   })
 
   it('highlights overlapping courses placed side-by-side on Calendar as overriding', () => {

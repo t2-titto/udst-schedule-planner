@@ -542,6 +542,8 @@ export function Calendar(props: Props) {
         longPressTriggeredRef.current = true
         setPeekBlock(b)
       }, 360)
+    } else {
+      setPeekBlock((cur) => (cur && blockKey(cur) === blockKey(b) ? cur : null))
     }
     const c = courses.find((x) => x.code === b.courseCode)
     if (!c) return
@@ -640,31 +642,12 @@ export function Calendar(props: Props) {
             ) : (
               <span className="status-badge">Move onto a dashed slot</span>
             )
-          ) : peekBlock ? (() => {
-            const pCourse = courses.find((c) => c.code === peekBlock.courseCode)
-            const pOpt = pCourse ? effective(pCourse, state) : null
-            const pComp = pOpt?.components.find((cm) => cm.classNbr === peekBlock.classNbr)
-            const pLab = isLabBlock(peekBlock, pCourse)
-            const pOnline = isOnlineRoom(peekBlock.room)
-            const seatsStr = pComp ? fmtSeats(pComp.seatsOpen, pComp.seatsTotal) : ''
-            const secStr = pComp?.section ? `Sec ${fmtSec(pComp.section)}` : ''
-            const pOverlaps = overlapByBlock.get(blockKey(peekBlock)) ?? []
-            return (
-              <span className={`status-badge cal-peek-pill ${pOverlaps.length ? 'bad' : ''}`} role="status">
-                {peekBlock.courseCode} ({pCourse?.title || peekBlock.kind}) · {pLab ? 'Lab' : 'Lecture'}
-                {secStr ? ` · ${secStr}` : ''} · {DAY_SHORT[peekBlock.day]} {fmtMin(peekBlock.start)}–{fmtMin(peekBlock.end)}
-                {pOnline ? ' · Online' : peekBlock.room ? ` · ${peekBlock.room}` : ''}
-                {peekBlock.instructors[0] ? ` · ${peekBlock.instructors[0]}` : ''}
-                {seatsStr ? ` · ${seatsStr}` : ''}
-                {pOverlaps.length ? ` · Overriding with ${pOverlaps.join(', ')}` : ''}
-              </span>
-            )
-          })() : overlapPairs.length > 0 ? (
+          ) : overlapPairs.length > 0 ? (
             <span className="status-badge bad" role="alert">
               Overriding: {overlapPairs.join(' · ')}
             </span>
           ) : (
-            <span className="suggest-sub">Drag to swap (hold on touch) · tap for sections</span>
+            <span className="suggest-sub">Drag to swap (hold on touch) · hover for info · tap for sections</span>
           )}
           {dragToast ? <span className="status-badge accent">{dragToast}</span> : null}
         </div>
@@ -793,7 +776,10 @@ export function Calendar(props: Props) {
                           }
                           if (!justDraggedRef.current) onInspectCourse(b.courseCode)
                         }}
-                        onContextMenu={(e) => { e.preventDefault(); onInspectCourse(b.courseCode) }}
+                        data-ctx-kind="block"
+                        data-ctx-code={b.courseCode}
+                        data-ctx-sec={comp?.section ? fmtSec(comp.section) : ''}
+                        data-ctx-comp={isLab ? 'Lab' : 'Lecture'}
                       >
                         <div className="cal-block-head">
                           <span>{b.courseCode}</span>
@@ -812,6 +798,40 @@ export function Calendar(props: Props) {
                       </button>
                     )
                   })}
+
+                  {peekBlock && peekBlock.day === day && !drag?.moved ? (() => {
+                    const pCourse = courses.find((c) => c.code === peekBlock.courseCode)
+                    const pOpt = pCourse ? effective(pCourse, state) : null
+                    const pComp = pOpt?.components.find((cm) => cm.classNbr === peekBlock.classNbr)
+                    const pLab = isLabBlock(peekBlock, pCourse)
+                    const pOnline = isOnlineRoom(peekBlock.room)
+                    const seatsStr = pComp ? fmtSeats(pComp.seatsOpen, pComp.seatsTotal) : ''
+                    const secStr = pComp?.section ? `Sec ${fmtSec(pComp.section)}` : ''
+                    const pOverlaps = overlapByBlock.get(blockKey(peekBlock)) ?? []
+                    return (
+                      <div
+                        className={`cal-hover-tip ${day >= 3 ? 'flip-x' : ''} ${yCls(peekBlock.start)}`}
+                        role="status"
+                      >
+                        <div className="cal-hover-title">
+                          <strong>{peekBlock.courseCode}</strong>
+                          <span>{pLab ? 'Lab' : 'Lecture'}{secStr ? ` · Sec ${secStr}` : ''}</span>
+                        </div>
+                        {pCourse?.title ? <div className="cal-hover-sub">{pCourse.title}</div> : null}
+                        <div className="cal-hover-meta">
+                          <span>{DAY_SHORT[peekBlock.day]} {fmtMin(peekBlock.start)}–{fmtMin(peekBlock.end)}</span>
+                          <span>{pOnline ? 'Online' : (peekBlock.room || 'TBA')}</span>
+                        </div>
+                        <div className="cal-hover-meta">
+                          <span>{peekBlock.instructors[0] || 'Staff'}</span>
+                          {seatsStr ? <span>{seatsStr}</span> : null}
+                        </div>
+                        {pOverlaps.length > 0 ? (
+                          <div className="cal-hover-clash">Overriding with {pOverlaps.join(', ')}</div>
+                        ) : null}
+                      </div>
+                    )
+                  })() : null}
                 </div>
               )
             })}

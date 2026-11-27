@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type MouseEvent } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { isStandaloneLabTitle, type CompatibleCandidate } from './compatible'
 import { getCatalogRule } from './catalogRules'
 import { optionStatusOf } from './guides'
@@ -216,7 +216,6 @@ export function CourseSidebar(props: Props) {
     if (!st) return 0
     return st.openCount + (showWaitlist ? st.waitlistCount : 0) + (showClosed ? st.closedCount : 0)
   }
-
   const anyChecked = compatible.some((c) => compatStatus[c.code]?.checked)
   const addableBase = compatible.filter((c) => {
     const st = compatStatus[c.code]
@@ -246,11 +245,6 @@ export function CourseSidebar(props: Props) {
     const diff = visibleSeatsFor(sb) - visibleSeatsFor(sa)
     return diff !== 0 ? diff : a.code.localeCompare(b.code)
   })
-
-  const openContext = (e: MouseEvent, code: string) => {
-    e.preventDefault()
-    onInspectCourse(code)
-  }
 
   return (
     <aside ref={asideRef} className="sidebar-panel" aria-label="Courses and filters" aria-hidden={!open}>
@@ -320,7 +314,8 @@ export function CourseSidebar(props: Props) {
                 <div
                   key={c.code}
                   className={`course-card sidebar-course-card has-tile ${tileClassFor(c.code, tileMap)} ${justAddedCode === c.code ? 'just-added' : ''} ${removed ? 'out' : ''}`}
-                  onContextMenu={(e) => openContext(e, c.code)}
+                  data-ctx-kind="planned"
+                  data-ctx-code={c.code}
                 >
                   <div className="course-card-top">
                     <div>
@@ -413,7 +408,12 @@ export function CourseSidebar(props: Props) {
               }
 
               return (
-                <div key={cand.code} className={`course-card sidebar-course-card has-tile ${tileClassFor(cand.code, tileMap)}`} onContextMenu={(e) => openContext(e, cand.code)}>
+                <div
+                  key={cand.code}
+                  className={`course-card sidebar-course-card has-tile ${tileClassFor(cand.code, tileMap)}`}
+                  data-ctx-kind="eligible"
+                  data-ctx-code={cand.code}
+                >
                   <div className="course-card-top">
                     <div>
                       <div className="course-code">
