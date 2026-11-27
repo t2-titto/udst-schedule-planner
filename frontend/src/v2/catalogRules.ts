@@ -44,14 +44,20 @@ export function collectRuleCodes(node: RuleNode | null | undefined): string[] {
 }
 
 /**
- * Evaluate a nested AND/OR prerequisite tree against `done`.
- * Returns `true` when satisfied, `false` when certainly unmet, and `null` when a non-course note (like a placement score) could satisfy it.
+ * Evaluate a nested AND/OR prerequisite tree against `done` (and `earnedCredits` for credit-minimum notes).
+ * Returns `true` when satisfied, `false` when certainly unmet, and `null` when a placement score/entry rule could satisfy it.
  */
-export function evalRuleTree(node: RuleNode | null | undefined, done: Set<string>): boolean | null {
+export function evalRuleTree(node: RuleNode | null | undefined, done: Set<string>, earnedCredits?: number | null): boolean | null {
   if (!node) return true
   if (typeof node === 'string') return done.has(normCode(node))
-  if ('note' in node) return null
-  const vals = node.items.map((it) => evalRuleTree(it, done))
+  if ('note' in node) {
+    const m = node.note.trim().match(/^minimum\s+(\d+)\s*credits$/i)
+    if (m && typeof earnedCredits === 'number' && Number.isFinite(earnedCredits)) {
+      return earnedCredits >= Number(m[1])
+    }
+    return null
+  }
+  const vals = node.items.map((it) => evalRuleTree(it, done, earnedCredits))
   if (node.op === 'AND') {
     if (vals.some((v) => v === false)) return false
     if (vals.some((v) => v === null)) return null
@@ -62,13 +68,21 @@ export function evalRuleTree(node: RuleNode | null | undefined, done: Set<string
   return false
 }
 
-/** Render a boolean rule tree into concise readable text. */
-export function formatRuleTree(node: RuleNode | null | undefined): string {
+/** Render a boolean rule tree into concise readable text with explicit grouping for mixed operators. */
+export function formatRuleTree(node: RuleNode | null | undefined, parentOp?: 'AND' | 'OR'): string {
   if (!node) return ''
   if (typeof node === 'string') return normCode(node)
   if ('note' in node) return node.note
-  const parts = node.items.map((it) => formatRuleTree(it)).filter(Boolean)
+  const parts = node.items.map((it) => formatRuleTree(it, node.op)).filter(Boolean)
   if (parts.length <= 1) return parts[0] ?? ''
   const sep = node.op === 'OR' ? ' or ' : ' and '
-  return parts.join(sep)
+  const joined = parts.join(sep)
+  return parentOp && parentOp !== node.op ? `(${joined})` : joined
+}
+
+/** True when a prerequisite tree includes an external placement/program-entry note rather than only course/credit checks. */
+export function isPlacementRule(node: RuleNode | null | undefined): boolean {
+  if (!node || typeof node === 'string') return false
+  if ('note' in node) return !/^minimum\s+\d+\s*credits$/i.test(node.note.trim())
+  return node.items?.some((it) => isPlacementRule(it)) ?? false
 }

@@ -8,10 +8,50 @@ export class ApiError extends Error {
 }
 
 export interface Status {
-  binaryFound: boolean
+  binaryFound?: boolean
   signedIn: boolean
   userHint: string | null
+  accountId?: string | null
   demo?: boolean
+  armed?: boolean
+  parallelReads?: number
+  confirmMode?: 'click' | 'phrase'
+  consent?: { version: string; statements: { id: string; text: string }[] }
+}
+
+export interface ServerAccount {
+  id: string
+  userHint: string
+  active: boolean
+  demo: boolean
+}
+
+export interface CompatibleCourseKey {
+  code: string
+  crse_id?: string
+  offer_nbr?: string
+  effdt?: string
+  need_detail?: boolean
+}
+
+export interface CompatibleSectionResult {
+  code: string
+  key?: { strm: string; crse_id: string; crse_offer_nbr: string; acad_career: string; institution: string }
+  sections?: unknown
+  detail?: unknown
+  error?: string
+}
+
+export interface CompatibleSectionsRes {
+  results: CompatibleSectionResult[]
+  stats: { workers: number; ms: number; parallel: boolean }
+}
+
+export interface BootstrapRes {
+  classes: ClassList
+  enrolled: { termRow: number; classes: unknown[] } | null
+  degree: unknown
+  stats: { via: string; ms: number; workers: number }
 }
 
 export interface WriteStatus {
@@ -141,43 +181,42 @@ export interface ClassList {
   can_submit: boolean
 }
 
-const SESSION_KEY = 'schedule-planner:v2:session'
-let memSessionId: string | null = null
+const ACCOUNT_KEY = 'planie:accountId'
+let memAccountId: string | null = null
 
-export function newSessionId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
-}
-
-/** Per-tab / per-window session id (lives in sessionStorage so private windows and other browsers start fresh). */
-export function getSessionId(): string {
-  if (memSessionId) return memSessionId
+export function getAccountId(): string | null {
+  if (memAccountId) return memAccountId
   try {
-    const existing = window.sessionStorage.getItem(SESSION_KEY)
-    if (existing) { memSessionId = existing; return existing }
-    const fresh = newSessionId()
-    window.sessionStorage.setItem(SESSION_KEY, fresh)
-    memSessionId = fresh
-    return fresh
+    const v = window.sessionStorage.getItem(ACCOUNT_KEY)
+    if (v) memAccountId = v
+    return memAccountId
   } catch {
-    memSessionId = newSessionId()
-    return memSessionId
+    return memAccountId
   }
 }
 
-export function setSessionId(id: string): void {
-  memSessionId = id
-  try { window.sessionStorage.setItem(SESSION_KEY, id) } catch { /* ignore */ }
+export function setAccountId(id: string | null): void {
+  memAccountId = id
+  try {
+    if (id) window.sessionStorage.setItem(ACCOUNT_KEY, id)
+    else window.sessionStorage.removeItem(ACCOUNT_KEY)
+  } catch { /* ignore */ }
 }
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response
+  const headers: Record<string, string> = {
+    'content-type': 'application/json',
+    'x-planner-request': '1',
+  }
+  const acct = getAccountId()
+  if (acct) headers['x-planie-account'] = acct
   try {
     res = await fetch(`/api${path}`, {
       ...init,
       cache: 'no-store',
       credentials: 'same-origin',
-      headers: { 'content-type': 'application/json', 'x-planner-request': '1', 'x-planner-session': getSessionId() },
+      headers,
     })
   } catch {
     throw new ApiError('The planner server is not reachable. Is it running?', 0)
@@ -200,15 +239,41 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  status: () => call<Status>('/status'),
+  status: async () => {
+    const st = await call<Status>('/status')
+    if (st.accountId) setAccountId(st.accountId)
+    return st
+  },
   // The password goes to this machine's own server only; it is never kept in page state or storage.
-  login: (username: string, password: string) =>
-    call<{ signedIn: boolean; userHint: string }>('/session', { method: 'POST', body: JSON.stringify({ username, password }) }),
-  logout: () => call<{ signedIn: boolean }>('/session', { method: 'DELETE' }),
+  login: async (username: string, password: string) => {
+    const res = await call<Status>('/session', { method: 'POST', body: JSON.stringify({ user: username, pass: password }) })
+    if (res.accountId) setAccountId(res.accountId)
+    return res
+  },
+  logout: async (all = false) => {
+    const res = await call<{ ok: boolean; signedIn: boolean }>(all ? '/session?all=1' : '/session', { method: 'DELETE' })
+    setAccountId(null)
+    return res
+  },
+  accounts: () => call<{ accounts: ServerAccount[]; activeId: string | null }>('/accounts'),
+  switchAccount: async (id: string) => {
+    const res = await call<Status>('/accounts/switch', { method: 'POST', body: JSON.stringify({ id }) })
+    if (res.accountId) setAccountId(res.accountId)
+    return res
+  },
   classes: () => call<ClassList>('/classes'),
   /** The class list and, when `term` is given, that term's enrolled list, read on two sessions at once. */
   refresh: (term?: string) =>
     call<{ classes: ClassList; enrolled: { termRow: number; classes: unknown[] } | null; stats: { via: string; ms: number; listMs: number } }>('/refresh', { method: 'POST', body: JSON.stringify({ term }) }),
+  /** Parallel initial load: class list + enrolled classes + degree tree. */
+  bootstrap: (term?: string) =>
+    call<BootstrapRes>('/bootstrap', { method: 'POST', body: JSON.stringify({ term }) }),
+  /** Parallel section fetch for eligible compatible courses in the student's degree. */
+  compatibleSections: (strm: string, courses: CompatibleCourseKey[], acadCareer = 'CRED', institution = 'CNAQA') =>
+    call<CompatibleSectionsRes>('/compatible_sections', {
+      method: 'POST',
+      body: JSON.stringify({ strm, acad_career: acadCareer, institution, courses }),
+    }),
   writeStatus: (signal?: AbortSignal) => call<WriteStatus>('/write/status', { signal }),
   /** Drops, then all swaps through one commit, then enrolments: one job, followed with `planProgress`. */
   planApply: (body: ApplyRequest) => call<{ started: boolean }>('/write/plan/apply', { method: 'POST', body: JSON.stringify(body) }),
@@ -224,4 +289,7 @@ export const api = {
   /** `known` maps course code to a key remembered from an earlier fetch; the server verifies every use of it. */
   sections: (rows: number[], known: Record<string, unknown> = {}) =>
     call<{ courses: unknown[]; stats?: FetchStats }>('/sections', { method: 'POST', body: JSON.stringify({ rows, known }) }),
+  /** Fetch a fresh random Lichess puzzle via local server proxy (respects strict connect-src CSP). */
+  chessPuzzle: () =>
+    call<{ id: string; rating: number; fen: string; lastMove?: string; solution: string[]; themes?: string[] }>('/games/chess-puzzle'),
 }

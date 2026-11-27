@@ -1,63 +1,79 @@
-import { useMemo, useState } from 'react'
-import { buildIcs, icsFileName, termRange } from '../engine/ics'
-import { Calendar } from './Calendar'
-import { asSchedule, blocksOf, overlapsOf, type PCourse, type PlannerState } from './model'
+import type { PlanProgress } from '../api'
+import { DAY_SHORT } from '../engine/types'
+import { downloadIcs } from './ics'
+import { blocksOf, type PCourse, type PlannerState } from './model'
+import { tileClassFor } from './SuggestionsStrip'
 
 interface Props {
+  term: string
   courses: PCourse[]
   state: PlannerState
-  term: string
+  progress: PlanProgress
   onBack: () => void
+  onSignOut: () => void
+  tileMap?: ReadonlyMap<string, string>
 }
 
-/** Only reached when everything is enrolled: the final week and the calendar file. */
-export function Done({ courses, state, term, onBack }: Props) {
-  const schedule = useMemo(() => asSchedule(courses, state), [courses, state])
-  const blocks = useMemo(() => blocksOf(courses, state), [courses, state])
-  // The term's first and last day come from PeopleSoft's own dates on the classes (any course carries them), not from a guess.
-  const found = useMemo(() => {
-    const all = termRange({ ...schedule, picks: courses.map((c, i) => ({ course: { code: c.code, title: c.title, term: c.term, options: c.options }, courseIndex: i, option: c.options[0] ?? c.held!, instructorScore: 0, limiting: [] })).filter((p) => p.option) })
-    return all.start && all.end ? all : termRange(schedule)
-  }, [courses, schedule])
-  const [start, setStart] = useState(found.start ?? '')
-  const [end, setEnd] = useState(found.end ?? '')
-  const valid = start !== '' && end !== '' && start <= end
-  const colorOf = (code: string) => Math.max(0, courses.findIndex((c) => c.code === code)) % 8
+const fmtClock = (min: number) => {
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`
+}
 
-  const download = () => {
-    const text = buildIcs(schedule, { termStart: start, termEnd: end, reminderMin: 30, calendarName: term ? `UDST ${term}` : 'UDST classes' })
-    const url = URL.createObjectURL(new Blob([text], { type: 'text/calendar;charset=utf-8' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = icsFileName(term)
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    window.setTimeout(() => URL.revokeObjectURL(url), 10000)
-  }
+export function Done({ term, courses, state, progress, onBack, onSignOut, tileMap }: Props) {
+  const activeBlocks = blocksOf(courses, state)
+  const doneItems = progress.items.filter((x) => x.status === 'done')
 
   return (
-    <div className="v2">
-      <header className="v2-bar"><h1>Schedule planner</h1></header>
-      <div className="v2-center">
-        <div className="v2-card wide">
-          <div style={{ textAlign: 'center' }}>
-            <h2><span className="v2-tick" style={{ display: 'inline-grid', verticalAlign: 'middle', marginRight: '0.5rem' }}>✓</span>Everything is enrolled</h2>
-            <p className="v2-muted">{term} · {schedule.picks.length} courses · matches PeopleSoft</p>
-          </div>
-          <Calendar blocks={blocks} overlaps={overlapsOf(blocks)} colorOf={colorOf} quiet />
-          <div className="v2-card" style={{ width: '100%', boxShadow: 'none', border: '1px solid var(--color-rule-2)' }}>
-            <h2 style={{ fontSize: 'var(--text-xl)' }}>Add to Google Calendar</h2>
-            {valid ? <p className="v2-muted">Weekly events from {start} to {end}, read from PeopleSoft’s class dates.</p> : (
-              <div className="v2-field"><label htmlFor="v2-start">First day</label><input id="v2-start" type="date" value={start} onChange={(e) => setStart(e.target.value)} /><label htmlFor="v2-end">Last day</label><input id="v2-end" type="date" value={end} onChange={(e) => setEnd(e.target.value)} /></div>
-            )}
-            <div className="v2-actions" style={{ justifyContent: 'flex-start' }}>
-              <button type="button" className="btn" disabled={!valid} onClick={download}>Download calendar file (.ics)</button>
-              <button type="button" className="v2-linkbtn" onClick={onBack}>Back to planner</button>
-            </div>
-          </div>
+    <div className="planie-root">
+      <header className="topbar">
+        <div className="topbar-left">
+          <span className="brand-mark"><span className="brand-dot" aria-hidden="true" />Planie</span>
+          <span className="term-pill">{term}</span>
         </div>
-      </div>
+        <div className="topbar-right">
+          <button type="button" className="btn btn-sm" onClick={onBack}>Back to workspace</button>
+          <button type="button" className="btn btn-sm" onClick={onSignOut}>Sign out</button>
+        </div>
+      </header>
+
+      <main className="apply-shell done-shell">
+        <section className="setup-card">
+          <div className="suggestions-head">
+            <div>
+              <h2>You&apos;re enrolled!</h2>
+              <p className="login-sub">
+                {doneItems.length} update{doneItems.length === 1 ? '' : 's'} confirmed for {term}.
+              </p>
+            </div>
+            <button type="button" className="btn btn-primary" onClick={() => downloadIcs(courses, state, term)}>
+              Export to Google Calendar (.ics)
+            </button>
+          </div>
+
+          <div className="done-week-grid">
+            {[0, 1, 2, 3, 4].map((day) => {
+              const dayClasses = activeBlocks.filter((b) => b.day === day).sort((a, b) => a.start - b.start)
+              return (
+                <div key={day} className="action-card">
+                  <strong>{DAY_SHORT[day]}</strong>
+                  {dayClasses.length === 0 ? (
+                    <span className="suggest-sub">Free day</span>
+                  ) : (
+                    dayClasses.map((b, i) => (
+                      <div key={i} className={`course-card ${tileClassFor(b.courseCode, tileMap)}`}>
+                        <div className="course-code">{b.courseCode}</div>
+                        <div className="suggest-sub num">{fmtClock(b.start)}–{fmtClock(b.end)}</div>
+                        <div className="suggest-sub">{b.room || 'Campus'}</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      </main>
     </div>
   )
 }

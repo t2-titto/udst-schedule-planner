@@ -1,24 +1,123 @@
 :root {
   color-scheme: light;
-  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
-  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
-  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
-  --color-error: oklch(52% 0.19 27); --color-success: oklch(50% 0.12 150);
-  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
-  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
-  --color-paper: oklch(98.2% 0.006 95); --color-paper-2: oklch(96.4% 0.006 95); --color-paper-3: oklch(93.6% 0.008 95);
-  --color-ink: oklch(23% 0.035 245); --color-ink-2: oklch(36% 0.035 245); --color-muted: oklch(50% 0.025 240);
-  --color-rule: oklch(89.5% 0.008 230); --color-rule-2: oklch(93.5% 0.006 230);
-  --color-accent: oklch(50% 0.12 234); --color-accent-hi: oklch(44% 0.12 236); --color-accent-ink: oklch(99% 0.003 95); --color-accent-soft: oklch(94% 0.025 220); --color-focus: oklch(56% 0.14 234);
-  --color-shade: oklch(86% 0.05 212); --color-shade-2: oklch(74% 0.07 220); --color-light: oklch(99.7% 0.004 95);
-  --spec-1: oklch(78% 0.15 32); --spec-2: oklch(90% 0.15 105); --spec-3: oklch(82% 0.13 175); --spec-4: oklch(66% 0.15 270);
-  --color-slot: oklch(86% 0.05 212);
-  --edge-light: inset 0 1px 0 oklch(100% 0 0 / 0.9), inset 0 0 0 1px oklch(100% 0 0 / 0.55);
-  --shadow-card: 18px 28px 48px -26px oklch(52% 0.09 220 / 0.38), 2px 3px 6px -2px oklch(40% 0.05 230 / 0.12);
-  --shadow-cast: 28px 40px 70px -30px oklch(60% 0.11 212 / 0.45);
-  --font-display: "Funnel Display", ui-sans-serif, system-ui, sans-serif; --font-body: "Funnel Sans", ui-sans-serif, system-ui, sans-serif;
-  --radius-card: 22px; --radius-inner: 12px; --radius-pill: 999px; --rule-hair: 1px;
-  --tracking-display: -0.032em; --display-weight: 400;
+  /* Core Planie Light Palette */
+  --paper: #FAF9F5;
+  --paper-2: #F3F0E8;
+  --paper-3: #E9E4D8;
+  --card: #FFFFFF;
+  --ink: #14213D;
+  --ink-2: #334155;
+  --muted: #64748B;
+  --hairline: rgba(20, 33, 61, 0.10);
+  --hairline-strong: rgba(20, 33, 61, 0.18);
+  --rule: #E2DED3;
+  --line: #E2DED3;
+
+  --accent: #1D63ED;
+  --accent-hover: #1553CE;
+  --accent-soft: #DBEAFE;
+  --accent-ink: #FFFFFF;
+  --focus: #1D63ED;
+
+  --ok: #15803D;
+  --ok-soft: #DCFCE7;
+  --warn: #B45309;
+  --warn-soft: #FEF3C7;
+  --bad: #B91C1C;
+  --bad-soft: #FEE2E2;
+
+  /* 8 Distinct Theme-Matched Pastel Course Tile Palettes */
+  --tile-0-bg: #DBEAFE; --tile-0-bd: #60A5FA; --tile-0-fg: #1E3A8A;
+  --tile-1-bg: #CCFBF1; --tile-1-bd: #2DD4BF; --tile-1-fg: #115E59;
+  --tile-2-bg: #FEF08A; --tile-2-bd: #EAB308; --tile-2-fg: #713F12;
+  --tile-3-bg: #EDE9FE; --tile-3-bd: #A78BFA; --tile-3-fg: #4C1D95;
+  --tile-4-bg: #FFE4E6; --tile-4-bd: #FB7185; --tile-4-fg: #881337;
+  --tile-5-bg: #DCFCE7; --tile-5-bd: #4ADE80; --tile-5-fg: #14532D;
+  --tile-6-bg: #FAE8FF; --tile-6-bd: #E879F9; --tile-6-fg: #701A75;
+  --tile-7-bg: #FFEDD5; --tile-7-bd: #FB923C; --tile-7-fg: #7C2D12;
+
+  /* Base.css alias tokens */
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-paper-3: var(--paper-3);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-focus: var(--focus);
+
+  --font-display: 'Funnel Display', system-ui, sans-serif;
+  --font-body: 'Funnel Sans', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  --display-weight: 600;
+  --tracking-display: -0.02em;
+  --text-display: clamp(1.6rem, 2.4vw, 2.1rem);
+  --text-section: 1.25rem;
+  --text-title: 1.05rem;
+  --text-lead: 1rem;
+  --text-md: 0.9375rem;
+
+  --container: 1440px;
+  --gutter: 20px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgba(20, 33, 61, 0.06);
+  --shadow-md: 0 8px 24px rgba(20, 33, 61, 0.09);
+  --shadow-lg: 0 16px 40px rgba(20, 33, 61, 0.14);
+
+  /* Compatibility aliases */
+  --bg: var(--paper);
+  --fg: var(--ink);
+  --s: 12px;
+  --r: 12px;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #0E1420;
+  --paper-2: #161F30;
+  --paper-3: #1E293B;
+  --card: #161F30;
+  --ink: #F1F5F9;
+  --ink-2: #CBD5E1;
+  --muted: #94A3B8;
+  --hairline: rgba(241, 245, 249, 0.12);
+  --hairline-strong: rgba(241, 245, 249, 0.22);
+  --rule: #253349;
+  --line: #253349;
+
+  --accent: #3B82F6;
+  --accent-hover: #60A5FA;
+  --accent-soft: rgba(59, 130, 246, 0.20);
+  --accent-ink: #FFFFFF;
+  --focus: #60A5FA;
+
+  --ok: #4ADE80;
+  --ok-soft: rgba(74, 222, 128, 0.16);
+  --warn: #FBBF24;
+  --warn-soft: rgba(251, 191, 36, 0.16);
+  --bad: #F87171;
+  --bad-soft: rgba(248, 113, 113, 0.18);
+
+  --tile-0-bg: rgba(37, 99, 235, 0.25); --tile-0-bd: rgba(96, 165, 250, 0.58); --tile-0-fg: #DBEAFE;
+  --tile-1-bg: rgba(13, 148, 136, 0.25); --tile-1-bd: rgba(45, 212, 191, 0.58); --tile-1-fg: #CCFBF1;
+  --tile-2-bg: rgba(202, 138, 4, 0.26); --tile-2-bd: rgba(250, 204, 21, 0.58); --tile-2-fg: #FEF08A;
+  --tile-3-bg: rgba(124, 58, 237, 0.25); --tile-3-bd: rgba(167, 139, 250, 0.58); --tile-3-fg: #EDE9FE;
+  --tile-4-bg: rgba(225, 29, 72, 0.25); --tile-4-bd: rgba(251, 113, 133, 0.58); --tile-4-fg: #FFE4E6;
+  --tile-5-bg: rgba(22, 163, 74, 0.25); --tile-5-bd: rgba(74, 222, 128, 0.58); --tile-5-fg: #DCFCE7;
+  --tile-6-bg: rgba(192, 38, 211, 0.25); --tile-6-bd: rgba(232, 121, 249, 0.58); --tile-6-fg: #FAE8FF;
+  --tile-7-bg: rgba(234, 88, 12, 0.25); --tile-7-bd: rgba(251, 146, 60, 0.58); --tile-7-fg: #FFEDD5;
+
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-paper-3: var(--paper-3);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-focus: var(--focus);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55);
 }

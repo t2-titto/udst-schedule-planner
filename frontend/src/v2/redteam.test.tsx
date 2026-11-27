@@ -106,10 +106,10 @@ describe('L7: a 200 that is not JSON is an error, not a silent null', () => {
   })
 })
 
-describe('M1: the sign-in screen asks for one acknowledgement before it signs in', () => {
-  it('the button is off until the statements are loaded and accepted', () => {
-    const html = renderToStaticMarkup(<Login signedInAs={null} onDone={() => {}} />)
-    expect(html).toContain('I have read these and accept them')
+describe('M1: the sign-in screen stays calm, disabled until credentials entered, with no live risk', () => {
+  it('displays the calm notice and keeps the Sign in button disabled until filled', () => {
+    const html = renderToStaticMarkup(<Login onSignedIn={() => {}} onSwitchAccount={() => {}} theme="light" onToggleTheme={() => {}} />)
+    expect(html).toContain('Changes only happen when you press Confirm')
     expect(html).toMatch(/<button[^>]*type="submit"[^>]*disabled/)
   })
 })

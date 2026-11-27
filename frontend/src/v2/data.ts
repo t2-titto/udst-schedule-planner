@@ -21,6 +21,8 @@ export interface Loaded {
   plan: Course[]
   /** Everything else the class list showed: courses without classes this term and other terms. */
   others: OtherRow[]
+  /** Per-course raw status from PeopleSoft's Plan & Enrol list (e.g. "Classes available", "Enrolled"). */
+  classStatuses?: Record<string, { term: string; status: string }>
 }
 
 export type LoadStep = 'enrolled' | 'plan' | 'times'
@@ -31,6 +33,20 @@ export type LoadStep = 'enrolled' | 'plan' | 'times'
  */
 export function keepJoinable(options: ClassOption[], waitlistOn: boolean): ClassOption[] {
   return options.filter((o) => !o.waitlist || (waitlistOn && isJoinable(o)))
+}
+
+/**
+ * Keep every normalized option (Open, Waitlist, and Closed) sorted Open-first so the UI's three toggles
+ * (`Open` / `Waitlist` / `Closed`) filter instantaneously without refetching PeopleSoft.
+ */
+export function sortBrowseable(options: ClassOption[]): ClassOption[] {
+  const rank = (o: ClassOption) => {
+    const s = o.status.trim().toLowerCase()
+    if (!o.waitlist && s === 'open' && o.components.every((c) => c.seatsOpen == null || c.seatsOpen > 0)) return 0
+    if (o.waitlist || s.includes('wait')) return 1
+    return 2
+  }
+  return [...options].sort((a, b) => rank(a) - rank(b))
 }
 
 const isAvailable = (status: string) => /^classes available$/i.test(status.trim())
@@ -236,6 +252,125 @@ export function loadSettings(): Settings {
   // Older saves carried a keyframe curve; only the window (from, until, fade) is used now.
   const { start, end, fade } = merged.timing
   return { ...merged, timing: { start, end, fade } }
+}
+
+export interface Bootstrapped {
+  loaded: Loaded
+  degree: unknown
+  catalogKeysFromServer: Record<string, Course['key']>
+}
+
+/**
+ * Unified single-call bootstrap for Planie: fetches `classes`, `enrolled`, and `degree_tree` in parallel on the server,
+ * then fetches section combinations keeping Open, Waitlist, and Closed options for instant toggle filtering.
+ */
+export async function bootstrapPlanie(onStep: (s: LoadStep, detail?: string) => void, opts: LoadOpts = {}): Promise<Bootstrapped> {
+  const boot = await api.bootstrap(opts.termHint)
+  const list = boot.classes
+  const term = openTerm(list.rows)
+  const rows = list.rows.filter((r) => r.term === term && isAvailable(r.status))
+  onStep('plan', `${rows.length} courses`)
+  const summaries = summariesOf(list.rows, term)
+  const early = boot.enrolled ? { termRow: boot.enrolled.termRow, classes: boot.enrolled.classes as EnrolledRow[] } : null
+  const enrolled =
+    early && (!opts.termHint || term === opts.termHint)
+      ? buildEnrolled(term, early.termRow, early.classes, summaries, true)
+      : await readEnrolled(term || list.term_label, summaries, true)
+  if (enrolled) addListedWaitlist(enrolled, list.rows, term)
+  onStep('enrolled', `${Object.keys(enrolled?.options ?? {}).length} courses`)
+
+  let plan: Course[] = []
+  if (rows.length) {
+    const cache = opts.full ? null : loadCache()
+    const keys = cache && cache.term === term ? cache.keys : {}
+    const courses: unknown[] = []
+    for (let i = 0; i < rows.length; i += SECTIONS_BATCH) {
+      const batch = rows.slice(i, i + SECTIONS_BATCH)
+      const known = Object.fromEntries(batch.flatMap((r) => { const code = codeOf(r.course_label); return code in keys ? [[code, keys[code]]] : [] }))
+      courses.push(...(await api.sections(batch.map((r) => r.row), known)).courses)
+    }
+    plan = normalizeCourses({ courses }).courses.map((c) => ({ ...c, options: sortBrowseable(c.options) }))
+    rememberKeys(term, Object.fromEntries(plan.filter((c) => c.key).map((c) => [c.code, c.key])))
+  }
+  onStep('times', `${plan.length} courses`)
+
+  const others: OtherRow[] = list.rows
+    .filter((r) => !(r.term === term && isAvailable(r.status)) && !(enrolled && enrolled.options[codeOf(r.course_label)]))
+    .map((r) => ({ code: codeOf(r.course_label) || r.course_label, title: r.course_label.replace(/^[^:]*:\s*/, ''), note: r.term ? `${r.term} · ${r.status}` : r.status }))
+  const classStatuses: Record<string, { term: string; status: string }> = {}
+  for (const r of list.rows) {
+    const code = codeOf(r.course_label)
+    if (code) classStatuses[code] = { term: r.term, status: r.status }
+  }
+  const catalogKeysFromServer = Object.fromEntries(plan.filter((c) => c.key).map((c) => [c.code, c.key]))
+  return {
+    loaded: { term, enrolled: enrolled ?? { term, termRow: -1, rows: [], options: {}, unconfirmed: [] }, plan, others, classStatuses },
+    degree: boot.degree,
+    catalogKeysFromServer,
+  }
+}
+
+export function normalizeCompatibleEntry(
+  entry: {
+    code: string
+    key?: { strm: string; crse_id: string; crse_offer_nbr: string; acad_career: string; institution: string }
+    crse_id?: string
+    offer_nbr?: string
+    sections?: unknown
+    error?: string
+  },
+  fallbackTitle: string,
+  fallbackUnits: number | null,
+  term: string,
+): { course: Course; openCount: number; waitlistCount: number; closedCount: number; notOffered: boolean } | null {
+  const sec = entry.sections as { options?: unknown[]; units?: string; title?: string; course?: string } | null
+  const m = /^(Winter|Spring|Fall)\s+(\d{4})$/.exec(term.trim())
+  const strm = m ? `1${m[2].slice(2)}${m[1] === 'Winter' ? 1 : m[1] === 'Spring' ? 5 : 8}` : '1271'
+  const key = entry.key ?? {
+    strm,
+    crse_id: entry.crse_id ?? '000000',
+    crse_offer_nbr: entry.offer_nbr ?? '1',
+    acad_career: 'CRED',
+    institution: 'CNAQA',
+  }
+  if (!sec || !Array.isArray(sec.options)) {
+    return {
+      course: {
+        code: entry.code,
+        title: fallbackTitle,
+        term,
+        units: fallbackUnits != null ? String(fallbackUnits) : '3.00',
+        key,
+        row: 0,
+        options: [],
+      },
+      openCount: 0,
+      waitlistCount: 0,
+      closedCount: 0,
+      notOffered: true,
+    }
+  }
+  const n = normalizeCourses({ courses: [{ key, row: 0, sections: sec }] })
+  const norm = n.courses[0]
+  const opts = sortBrowseable(norm?.options ?? [])
+  const openCount = opts.filter((o) => o.status.trim().toLowerCase() === 'open' && !o.waitlist && o.components.every((c) => c.seatsOpen == null || c.seatsOpen > 0)).length
+  const waitlistCount = opts.filter((o) => !!o.waitlist || /wait/i.test(o.status)).length
+  const closedCount = Math.max(0, opts.length - openCount - waitlistCount)
+  return {
+    course: {
+      code: norm?.code ?? entry.code,
+      title: norm?.title || sec.title || fallbackTitle,
+      term: norm?.term || term,
+      units: norm?.units ?? sec.units ?? (fallbackUnits != null ? String(fallbackUnits) : '3.00'),
+      key,
+      row: 0,
+      options: opts,
+    },
+    openCount,
+    waitlistCount,
+    closedCount,
+    notOffered: opts.length === 0,
+  }
 }
 
 export function saveSettings(settings: Settings): void {

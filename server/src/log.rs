@@ -160,7 +160,18 @@ pub fn event(ev: &str, fields: Value) {
     if s.bytes > ROTATE_AT {
         let old = s.path.with_extension("log.1");
         let _ = std::fs::rename(&s.path, old);
-        if let Ok(f) = std::fs::OpenOptions::new().create(true).append(true).open(&s.path) {
+        let opened = {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                std::fs::OpenOptions::new().create(true).append(true).mode(0o600).open(&s.path)
+            }
+            #[cfg(not(unix))]
+            {
+                std::fs::OpenOptions::new().create(true).append(true).open(&s.path)
+            }
+        };
+        if let Ok(f) = opened {
             s.file = Some(f);
             s.bytes = 0;
         }

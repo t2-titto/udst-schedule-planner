@@ -35,14 +35,17 @@ You do **not** need to reinstall. Everything stays in `C:\Users\<you>\AppData\Lo
 
 Keep the black window open while using the planner; closing it (or Ctrl+C) stops the server.
 
-### Updates are automatic
-Every time the planner starts (shortcut, `Ctrl+Alt+U`, or the command above) it checks GitHub for a newer version. If there is one, it downloads it, rebuilds (fast, the build cache is kept) and then starts it. If you are offline, or the check fails, it just starts the version you have.
+### Updates check automatically with a CMD prompt
+Every time you double-click the Desktop shortcut, press `Ctrl+Alt+U`, or run the command above (including after restarting Windows):
+1. It makes sure your Desktop/Start Menu shortcut exists, checks GitHub for a newer commit, and tells you in the CMD window if an update is available.
+2. If you type **Y** (or press Enter), it stops any old server, downloads the verified GitHub commit, checks `CHECKSUMS.sha256`, incrementally rebuilds the local binary cleanly from `Cargo.lock`, and starts the updated server + opens `http://localhost:6767`.
+3. If you type **N** (or are offline), it skips the update and launches/opens your installed version.
 
-**The one line that always works** (even on an old install that has no auto-update yet, or if anything is broken) is the install command; it fetches the latest installer, updates if needed, and launches:
+**One-command install / update right now:**
 ```powershell
 irm https://raw.githubusercontent.com/t2-titto/udst-schedule-planner/main/install.ps1 | iex
 ```
-To force a re-download and rebuild even when already up to date:
+To force a full re-download and rebuild even when already up to date:
 ```powershell
 $env:UDST_UPDATE = "1"; irm https://raw.githubusercontent.com/t2-titto/udst-schedule-planner/main/install.ps1 | iex
 ```

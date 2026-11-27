@@ -34,6 +34,14 @@ export interface WireSwap {
   hint: string
 }
 
+export interface WirePlan {
+  course: string
+  year: number
+  index: number
+  termCode: string
+  credits: { term: string; limit: number; after: number; unknown: string[]; overrideLimit?: boolean }
+}
+
 export interface ApplyRequest {
   term: string
   /** The term's row on PeopleSoft's drop page, or null when the term is not there (nothing enrolled in it): then there is nothing to drop, and the server refuses an Apply that drops. */
@@ -41,10 +49,10 @@ export interface ApplyRequest {
   drops: { course: string; classNbr: string }[]
   rounds: WireSwap[][]
   enrols: { pick: WirePick; depends: string[]; afterDrop?: boolean; afterPlan?: boolean }[]
-  /** Courses planned into the term first (course planning only), then enrolled. Each has one enrolment with `afterPlan`. */
-  plans: { course: string; year: number; index: number; termCode: string; credits: { term: string; limit: number; after: number; unknown: string[] } }[]
-  /** The credit check the page made. The server refuses an apply that enrols without it, or with numbers over the limit. */
-  credits: { term: string; limit: number; after: number; unknown: string[] }
+  /** Courses planned into a term (either for current-term enrolment with `afterPlan`, or standalone Future Semester move-outs). */
+  plans: WirePlan[]
+  /** The credit check the page made. The server refuses an apply that enrols without it, or with numbers over the limit without explicit override. */
+  credits: { term: string; limit: number; after: number; unknown: string[]; overrideLimit?: boolean }
 }
 
 const nbrs = (o: ClassOption) => o.components.map((c) => c.classNbr)
@@ -55,7 +63,15 @@ const overlapsWith = (c: RoundSwap, other: RoundSwap) => overlapsBetween(c.next,
  * The one request the Apply screen sends. Every number the server needs as an unsigned integer goes through `wireRow`, and the type
  * has no optional number, so a missing one is a compile error here instead of a 422 on the page.
  */
-export function buildApplyRequest(plan: Plan, rp: RoundPlan, enrolled: EnrolledState, drops: Plan['drops'], credits: Credits, added: Record<string, AddPlan> = {}): ApplyRequest {
+export function buildApplyRequest(
+  plan: Plan,
+  rp: RoundPlan,
+  enrolled: EnrolledState,
+  drops: Plan['drops'],
+  credits: Credits,
+  added: Record<string, AddPlan> = {},
+  movePlans: WirePlan[] = [],
+): ApplyRequest {
   const swapItem = (sw: RoundSwap): WireSwap => {
     const waits = rp.waits[sw.code] ?? []
     const course = plan.swaps.find((x) => x.course.code === sw.code)!.course
@@ -96,11 +112,32 @@ export function buildApplyRequest(plan: Plan, rp: RoundPlan, enrolled: EnrolledS
       }),
       ...redoEnrols,
     ],
-    plans: plan.enrols.filter((e) => added[e.course.code]).map((e) => {
-      const a = added[e.course.code]
-      return { course: e.course.code, year: a.year, index: a.index, termCode: a.toCode, credits: { term: enrolled.term, limit: credits.limit.max, after: credits.sent, unknown: credits.unknown } }
-    }),
-    credits: { term: enrolled.term, limit: credits.limit.max, after: credits.sent, unknown: credits.unknown },
+    plans: [
+      ...plan.enrols.filter((e) => added[e.course.code]).map((e) => {
+        const a = added[e.course.code]
+        return {
+          course: e.course.code,
+          year: a.year,
+          index: a.index,
+          termCode: a.toCode,
+          credits: {
+            term: enrolled.term,
+            limit: credits.limit.max,
+            after: credits.sent,
+            unknown: credits.unknown,
+            ...(credits.overrideLimit ? { overrideLimit: true } : {}),
+          },
+        }
+      }),
+      ...movePlans.filter((m) => !plan.enrols.some((e) => added[e.course.code] && e.course.code === m.course)),
+    ],
+    credits: {
+      term: enrolled.term,
+      limit: credits.limit.max,
+      after: credits.sent,
+      unknown: credits.unknown,
+      ...(credits.overrideLimit ? { overrideLimit: true } : {}),
+    },
   }
 }
 

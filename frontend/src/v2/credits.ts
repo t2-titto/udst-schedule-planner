@@ -62,8 +62,10 @@ export interface Credits {
   waitlistUnits: number
   /** The total is over the limit only because of waitlisted courses: the student may override. */
   waitlistOnly: boolean
-  /** The student chose to go on although only waitlisted credits put the total over. */
+  /** The student chose to go on although credits put the total over (waitlist or intentional override). */
   overridden: boolean
+  /** True when explicitly overriding the hard limit (rather than only excluding waitlisted units). */
+  overrideLimit: boolean
   /** The credit total sent to the server: `after`, less the waitlisted credits when the student overrode. */
   sent: number
 }
@@ -75,7 +77,14 @@ const sum = (xs: (number | null)[]) => xs.reduce<number>((a, x) => a + (x ?? 0),
  * and it counts every course planned for the term whether or not the student ticked it in the schedule. So a planned course that is unticked
  * still counts until it is un-planned. Unknown units are never counted as 0: they make the total untrustworthy and block.
  */
-export function creditsFor(courses: PCourse[], state: PlannerState, term: string, planning: Record<string, string> = {}, waitlistOverride = false): Credits {
+export function creditsFor(
+  courses: PCourse[],
+  state: PlannerState,
+  term: string,
+  planning: Record<string, string> = {},
+  waitlistOverride = false,
+  overrideLimit = false,
+): Credits {
   const limit = limitFor(term)
   const lines: CreditLine[] = courses.map((c) => {
     const inSchedule = !state.removed.includes(c.code)
@@ -116,9 +125,28 @@ export function creditsFor(courses: PCourse[], state: PlannerState, term: string
   }
   const waitlistUnits = sum(afterLines.filter((l) => l.waitlisted).map((l) => l.units))
   const waitlistOnly = over && waitlistUnits > 0 && after - waitlistUnits <= limit.max
-  const overridden = waitlistOnly && waitlistOverride
-  const sent = overridden ? after - waitlistUnits : after
-  return { limit, schedule, now, after, unknown, excess, over, blocked: (over && !overridden) || unknown.length > 0, lines, wayOut, deferred, waitlistUnits, waitlistOnly, overridden, sent }
+  const waitOverridden = waitlistOnly && waitlistOverride
+  const explicitOverride = over && overrideLimit
+  const overridden = waitOverridden || explicitOverride
+  const sent = waitOverridden && !explicitOverride ? after - waitlistUnits : after
+  return {
+    limit,
+    schedule,
+    now,
+    after,
+    unknown,
+    excess,
+    over,
+    blocked: (over && !overridden) || unknown.length > 0,
+    lines,
+    wayOut,
+    deferred,
+    waitlistUnits,
+    waitlistOnly,
+    overridden,
+    overrideLimit: explicitOverride,
+    sent,
+  }
 }
 
 /** "16 / 18" style text. */

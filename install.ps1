@@ -1,14 +1,14 @@
 # UDST Schedule Planner -- Windows Installer (PowerShell, No Admin Required)
 # Usage:  irm https://raw.githubusercontent.com/t2-titto/udst-schedule-planner/main/install.ps1 | iex
-# Safe to re-run: skips anything already installed, re-verifies, and just launches.
-# Auto-updates: compares the installed version with the latest on GitHub and updates + rebuilds only when newer.
+# Safe to re-run: checks GitHub commit SHA, verifies archive integrity, keeps build cache, rebuilds if newer.
+# Hermes-style commit update: downloads the exact latest GitHub commit archive and rebuilds locally.
 # Force re-download + rebuild:  $env:UDST_UPDATE = "1"; irm <url> | iex
 # $env:UDST_NO_LAUNCH = "1" installs/updates without opening the planner (used by the launcher).
 
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$RepoZip    = "https://github.com/t2-titto/udst-schedule-planner/archive/refs/heads/main.zip"
+$Repo       = "t2-titto/udst-schedule-planner"
 $MingwZip   = "https://github.com/brechtsanders/winlibs_mingw/releases/download/16.2.0posix-23.1.3-14.0.0-ucrt-r3/winlibs-x86_64-posix-seh-gcc-16.2.0-mingw-w64ucrt-14.0.0-r3.zip"
 $InstallDir = Join-Path $env:LOCALAPPDATA "udst-schedule-planner"
 $AppDir     = Join-Path $InstallDir "app"
@@ -18,6 +18,7 @@ $ExePath    = Join-Path $AppDir "server\target\release\schedule-planner-server.e
 $Launcher   = Join-Path $InstallDir "Start-UDST-Planner.bat"
 $Update     = ($env:UDST_UPDATE -eq "1")
 $NoLaunch   = ($env:UDST_NO_LAUNCH -eq "1")
+$TargetSha  = if ($env:UDST_TARGET_SHA -and ($env:UDST_TARGET_SHA -match "^[0-9a-fA-F]{40}$")) { $env:UDST_TARGET_SHA.Trim().ToLowerInvariant() } else { $null }
 $VersionFile = Join-Path $InstallDir "version.txt"
 
 function Step($n, $msg) { Write-Host "  [$n/5] " -ForegroundColor Cyan -NoNewline; Write-Host $msg -ForegroundColor White }
@@ -37,17 +38,36 @@ function Download($url, $dest) {
     }
 }
 function Get-RemoteSha {
-    # Latest commit SHA of main on GitHub; $null if offline / rate-limited (then we just keep what is installed).
     try {
         $h = @{ "Accept" = "application/vnd.github.sha"; "User-Agent" = "udst-schedule-planner-installer" }
-        $s = (Invoke-RestMethod -Uri "https://api.github.com/repos/t2-titto/udst-schedule-planner/commits/main" -Headers $h -TimeoutSec 10 -UseBasicParsing)
-        $s = ("$s").Trim()
+        $s = (Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/commits/main" -Headers $h -TimeoutSec 10 -UseBasicParsing)
+        $s = ("$s").Trim().ToLowerInvariant()
         if ($s -match "^[0-9a-f]{40}$") { return $s }
     } catch {}
     return $null
 }
+function Verify-Checksums($rootDir) {
+    $manifest = Join-Path $rootDir "CHECKSUMS.sha256"
+    if (-not (Test-Path $manifest)) {
+        Info "No CHECKSUMS.sha256 in archive; skipping file hash verification."
+        return
+    }
+    $lines = Get-Content -Path $manifest -Encoding ASCII | Where-Object { $_.Trim() -and -not $_.Trim().StartsWith("#") }
+    $checked = 0
+    foreach ($line in $lines) {
+        if ($line -match "^\s*([0-9a-fA-F]{64})\s+\*?(.+?)\s*$") {
+            $expected = $Matches[1].ToLowerInvariant()
+            $rel = ($Matches[2] -replace '/', '\')
+            $target = Join-Path $rootDir $rel
+            if (-not (Test-Path $target)) { throw "Integrity check failed: missing $rel in GitHub archive." }
+            $actual = (Get-FileHash -Path $target -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $expected) { throw "Integrity check failed for $rel (expected $expected, got $actual)." }
+            $checked++
+        }
+    }
+    Ok "Verified $checked file hashes from GitHub commit manifest."
+}
 function Stop-Planner {
-    # Stop only OUR server (running from $ExePath) so the .exe is not locked.
     $procs = Get-Process -Name "schedule-planner-server" -ErrorAction SilentlyContinue
     foreach ($p in $procs) {
         $path = $null; try { $path = $p.Path } catch {}
@@ -59,11 +79,10 @@ function Stop-Planner {
 Write-Host ""
 Write-Host "  ============================================================" -ForegroundColor Cyan
 Write-Host "       UDST Schedule & Degree Planner  --  Windows Setup"       -ForegroundColor White
-Write-Host "       Local-only | No Admin Required | Safe to re-run"          -ForegroundColor DarkCyan
+Write-Host "       Local-only | No Admin Required | GitHub Verified"       -ForegroundColor DarkCyan
 Write-Host "  ============================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Only one installer at a time
 $created = $false
 $Mutex = New-Object System.Threading.Mutex($true, "Local\UDSTSchedulePlannerInstall", [ref]$created)
 if (-not $created) { Write-Host "  Another installer is already running. Wait for it to finish, then retry." -ForegroundColor Yellow; return }
@@ -73,39 +92,47 @@ try {
     $alreadyBuilt = (Test-Path $ExePath) -and (Test-Path (Join-Path $AppDir "frontend\dist\index.html")) -and (Test-Path (Join-Path $AppDir "launch.ps1"))
 
     $Downloaded = $false
-    $RemoteSha = Get-RemoteSha
+    $RemoteSha = if ($TargetSha) { $TargetSha } else { Get-RemoteSha }
     $LocalSha = $null
-    if (Test-Path $VersionFile) { $LocalSha = (Get-Content $VersionFile -ErrorAction SilentlyContinue | Select-Object -First 1) }
+    if (Test-Path $VersionFile) {
+        $rawLocal = (Get-Content $VersionFile -ErrorAction SilentlyContinue | Select-Object -First 1)
+        if ($rawLocal) { $LocalSha = $rawLocal.Trim().ToLowerInvariant() }
+    }
     if ($alreadyBuilt -and $RemoteSha -and $RemoteSha -ne $LocalSha) {
-        Info "New version available ($($RemoteSha.Substring(0,7))); updating automatically..."
+        Info "New GitHub commit available ($($RemoteSha.Substring(0,7))); updating..."
         $Update = $true
     } elseif ($alreadyBuilt -and -not $RemoteSha) {
-        Info "Could not check for updates (offline?); using the installed version."
+        Info "Could not check GitHub for updates (offline?); using the installed version."
     }
 
-    # 1. Download source
+    # 1. Download exact GitHub commit archive
     Step 1 "Checking app files in $InstallDir..."
     if ($alreadyBuilt -and -not $Update) {
         Ok "Already downloaded and up to date."
     } else {
         Stop-Planner
-        $ZipFile    = Join-Path $env:TEMP "udst-schedule-planner-main.zip"
+        $RepoZip = if ($RemoteSha) { "https://github.com/$Repo/archive/$RemoteSha.zip" } else { "https://github.com/$Repo/archive/refs/heads/main.zip" }
+        $ZipFile    = Join-Path $env:TEMP "udst-schedule-planner-commit.zip"
         $ExtractDir = Join-Path $env:TEMP "udst-schedule-planner-extract"
         Remove-Item -Recurse -Force $ExtractDir -ErrorAction SilentlyContinue
         Remove-Item -Force $ZipFile -ErrorAction SilentlyContinue
+        Info "Fetching exact commit archive from GitHub..."
         Download $RepoZip $ZipFile
         try { Expand-Archive -Path $ZipFile -DestinationPath $ExtractDir -Force }
         catch { throw "Downloaded file is corrupt ($($_.Exception.Message)). Re-run the installer." }
         $Inner = Get-ChildItem -Path $ExtractDir -Directory | Select-Object -First 1
-        if (-not $Inner -or -not (Test-Path (Join-Path $Inner.FullName "server\Cargo.toml"))) { throw "Downloaded archive looks incomplete. Re-run the installer." }
+        if (-not $Inner -or -not (Test-Path (Join-Path $Inner.FullName "server\Cargo.toml")) -or -not (Test-Path (Join-Path $Inner.FullName "server\Cargo.lock"))) {
+            throw "Downloaded archive looks incomplete. Re-run the installer."
+        }
+        Verify-Checksums $Inner.FullName
         New-Item -ItemType Directory -Force -Path $AppDir | Out-Null
-        # copy over existing app but KEEP server\target (build cache) so updates rebuild fast
+        # Copy over updated commit files while preserving server\target (Cargo build cache) for fast rebuilds
         & robocopy $Inner.FullName $AppDir /E /XD target /NFL /NDL /NJH /NJS /NP | Out-Null
         if ($LASTEXITCODE -ge 8) { throw "Copying app files failed (robocopy code $LASTEXITCODE). Is a file open in another program?" }
         Remove-Item -Force $ZipFile -ErrorAction SilentlyContinue
         Remove-Item -Recurse -Force $ExtractDir -ErrorAction SilentlyContinue
         $Downloaded = $true
-        Ok "Downloaded app and prebuilt web UI."
+        Ok "Downloaded commit and prebuilt web UI from GitHub."
     }
 
     # 2. Rust toolchain
@@ -127,6 +154,12 @@ try {
         Info "Installing official signed Rust toolchain (GNU target, user-only)..."
         $Rustup = Join-Path $env:TEMP "rustup-init.exe"
         Download "https://win.rustup.rs/x86_64" $Rustup
+        $sig = Get-AuthenticodeSignature -FilePath $Rustup
+        if (-not $sig -or $sig.Status -ne 'Valid') {
+            Remove-Item -Force $Rustup -ErrorAction SilentlyContinue
+            throw "Official rustup-init.exe signature verification failed (Status: $($sig.Status))."
+        }
+        Ok "Verified official Rust Authenticode signature."
         Run-Native $Rustup @("-y","--default-host","x86_64-pc-windows-gnu","--profile","minimal","--no-modify-path") "rustup-init"
         Remove-Item -Force $Rustup -ErrorAction SilentlyContinue
         $env:PATH = "$CargoBin;$env:PATH"; $needGnu = $true
@@ -147,7 +180,7 @@ try {
         if (-not (Get-Command gcc -ErrorAction SilentlyContinue)) {
             Info "Downloading portable MinGW-w64 (no admin, ~1-2 min)..."
             $MZip = Join-Path $env:TEMP "winlibs-mingw.zip"
-            Remove-Item -Recurse -Force $MingwDir -ErrorAction SilentlyContinue   # drop any half-extracted copy
+            Remove-Item -Recurse -Force $MingwDir -ErrorAction SilentlyContinue
             Download $MingwZip $MZip
             Expand-Archive -Path $MZip -DestinationPath $InstallDir -Force
             Remove-Item -Force $MZip -ErrorAction SilentlyContinue
@@ -157,13 +190,13 @@ try {
         } else { Ok "GCC already available." }
     }
 
-    # 3. Build
-    Step 3 "Checking server binary..."
+    # 3. Build cleanly against Cargo.lock
+    Step 3 "Building hardened release binary..."
     if ($needBuild) {
         Stop-Planner
-        Info "Compiling (first build ~1-2 minutes)..."
+        Info "Compiling release binary from verified commit..."
         Push-Location (Join-Path $AppDir "server")
-        try { Run-Native cargo @("build","--release") "cargo build" } finally { Pop-Location }
+        try { Run-Native cargo @("build","--release","--locked") "cargo build" } finally { Pop-Location }
         if (-not (Test-Path $ExePath)) { throw "Built binary not found at $ExePath" }
         Ok "Built $ExePath"
         if ($RemoteSha) { Set-Content -Path $VersionFile -Value $RemoteSha -Encoding ASCII }
@@ -171,19 +204,18 @@ try {
         Ok "Binary present: $ExePath"
     }
 
-    # 4. Launcher + shortcut (always rewritten: cheap, repairs deleted/broken ones, never duplicates)
+    # 4. Launcher + Desktop & Start Menu shortcuts (always created/repaired cleanly)
     Step 4 "Checking launcher and Desktop shortcut..."
-    # launch.ps1 owns launcher + shortcut creation (same code the launcher uses to self-heal)
     Run-Native powershell @("-NoProfile","-ExecutionPolicy","Bypass","-File",(Join-Path $AppDir "launch.ps1"),"-SetupOnly") "shortcut setup"
     if (-not (Test-Path $Launcher)) { throw "Launcher was not created at $Launcher" }
-    Ok "Launcher + Desktop/Start Menu shortcuts ready. Keyboard shortcut: Ctrl+Alt+U"
+    Ok "Launcher + Desktop/Start Menu shortcuts ready. Hotkey: Ctrl+Alt+U"
 
-    # 5. Launch (launcher handles 'already running' and busy ports)
-    Step 5 "Launching..."
+    # 5. Launch
+    Step 5 "Ready..."
     Write-Host ""
     Write-Host "  ============================================================" -ForegroundColor Green
-    Write-Host "    Ready!  Next time press Ctrl+Alt+U, or double-click the Desktop shortcut,"   -ForegroundColor White
-    Write-Host "    or run:  cmd /c `"$Launcher`""                                -ForegroundColor Cyan
+    Write-Host "    Ready! Double-click 'UDST Schedule Planner' on your Desktop," -ForegroundColor White
+    Write-Host "    press Ctrl+Alt+U, or run:  cmd /c `"$Launcher`""               -ForegroundColor Cyan
     Write-Host "  ============================================================" -ForegroundColor Green
     Write-Host ""
     if (-not $NoLaunch) { Start-Process -FilePath "cmd.exe" -ArgumentList "/k", "`"$Launcher`"" }

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fingerprint, HELD_TTL_MS, usableHeld, type Cache } from './cache'
-import { ago } from './Planner'
+import { ago, fingerprint, HELD_TTL_MS, usableHeld, type Cache } from './cache'
 
 const codeOf = (c: string) => c.split(' ').slice(0, 2).join(' ')
 const row = (nbr: string, course: string) => ({ row: 0, class_nbr: nbr, component: 'Lecture', section: '1', course, schedule: [], status: 'Enrolled' })

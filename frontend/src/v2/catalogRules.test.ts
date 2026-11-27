@@ -20,6 +20,6 @@ describe('catalogRules', () => {
     const tree = { op: 'AND' as const, items: ['ACCT 1001', { op: 'OR' as const, items: ['MATH 1010', 'MATH 1020'] }] }
     expect(evalRuleTree(tree, new Set(['ACCT 1001']))).toBe(false)
     expect(evalRuleTree(tree, new Set(['ACCT 1001', 'MATH 1020']))).toBe(true)
-    expect(formatRuleTree(tree)).toBe('ACCT 1001 and MATH 1010 or MATH 1020')
+    expect(formatRuleTree(tree)).toBe('ACCT 1001 and (MATH 1010 or MATH 1020)')
   })
 })
