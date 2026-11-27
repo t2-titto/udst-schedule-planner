@@ -297,42 +297,49 @@ export function buildSuggestions(
     c.label = candidate
   }
 
-  // Preserve the user's untouched registered schedule when all held courses fit without time overlap
-  const activeAll = courses.filter((c) => !state.removed.includes(c.code))
-  const heldAll = activeAll.filter((c) => !!c.held)
-  if (heldAll.length > 0 && activeAll.length === sc.length) {
-    const origChoices: Record<string, string> = { ...state.choice }
-    for (const c of activeAll) {
-      const opt = c.held ?? effective(c, state)
-      if (opt) origChoices[c.code] = opt.id
+  // Always keep the user's untouched registered schedule available whenever all originally held courses fit without overlap (even after removing/adding/swapping courses)
+  let originalMatchesActive = false
+  const heldAll = courses.filter((c) => !!c.held)
+  if (heldAll.length > 0) {
+    const origChoices: Record<string, string> = {}
+    for (const c of heldAll) {
+      if (c.held) origChoices[c.code] = c.held.id
     }
-    const origState: PlannerState = { ...state, choice: origChoices }
-    const allHaveOpt = activeAll.every((c) => !!(c.held ?? effective(c, origState)))
-    if (allHaveOpt && overlapsOf(blocksOf(activeAll, origState)).length === 0) {
-      const origSched = asSchedule(activeAll, origState)
+    const origState: PlannerState = {
+      ...state,
+      choice: origChoices,
+      removed: courses.filter((c) => !c.held).map((c) => c.code),
+    }
+    if (overlapsOf(blocksOf(heldAll, origState)).length === 0) {
+      const origSched = asSchedule(heldAll, origState)
       const origSig = `:${scheduleSignature(origSched)}`
-      const existingIdx = cards.findIndex((c) => c.id === origSig)
-      const isOnlyFullFit = fullCardsCount === 0 || (fullCardsCount === 1 && existingIdx >= 0)
+      const allActiveAreHeld =
+        courses.every((c) => (c.held ? !state.removed.includes(c.code) : state.removed.includes(c.code)))
+      originalMatchesActive = allActiveAreHeld
+      const existingIdx = allActiveAreHeld ? cards.findIndex((c) => c.id === origSig) : -1
+      const isOnlyFullFit = allActiveAreHeld && (fullCardsCount === 0 || (fullCardsCount === 1 && existingIdx >= 0))
       if (existingIdx >= 0) {
         const match = cards.splice(existingIdx, 1)[0]
         match.isOriginal = true
         match.label = 'Original · Untouched'
         match.detail = isOnlyFullFit ? 'Only fit · keeps all registered' : 'Registered · no changes'
         cards.unshift(match)
-      } else if (fullCardsCount === 0) {
-        cards.unshift({
+      } else {
+        const origCard: SuggestionCard = {
           id: origSig,
           label: 'Original · Untouched',
-          detail: 'Only fit · keeps all registered',
+          detail: isOnlyFullFit ? 'Only fit · keeps all registered' : 'Restore original enrolled',
           schedule: origSched,
           isOriginal: true,
-        })
+        }
+        if (allActiveAreHeld) cards.unshift(origCard)
+        else cards.splice(Math.min(3, cards.length), 0, origCard)
       }
     }
   }
 
   let partialNotice: string | null = null
-  if (cards.length > 0 && fullCardsCount === 0 && !cards.some((c) => c.isOriginal)) {
+  if (cards.length > 0 && fullCardsCount === 0 && (!originalMatchesActive || !cards.some((c) => c.isOriginal))) {
     const activeCourses = courses.filter((c) => !state.removed.includes(c.code))
     const activeOverlaps = overlapsOf(blocksOf(activeCourses, state))
     const pairs = [...new Set(activeOverlaps.map((o) => `${o.a.courseCode} × ${o.b.courseCode}`))].slice(0, 2)

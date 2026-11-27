@@ -11,7 +11,7 @@ import {
   type GuideFilters,
   type SlotChoice,
 } from './guides'
-import { redoChange, swappable, effective, isLocked, type PBlock, type PCourse, type PlannerState } from './model'
+import { effective, isLocked, overlapsOf, redoChange, swappable, type PBlock, type PCourse, type PlannerState } from './model'
 import { tileClassFor } from './SuggestionsStrip'
 
 export interface Placement {
@@ -330,6 +330,27 @@ export function Calendar(props: Props) {
   }
 
   const lanes = lanesOf(blocks)
+  const { overlapByBlock, overlapPairs } = useMemo(() => {
+    const byBlock = new Map<string, string[]>()
+    const pairs: string[] = []
+    const seenPair = new Set<string>()
+    for (const ol of overlapsOf(blocks)) {
+      const ka = blockKey(ol.a)
+      const kb = blockKey(ol.b)
+      const la = byBlock.get(ka) ?? []
+      if (!la.includes(ol.b.courseCode)) la.push(ol.b.courseCode)
+      byBlock.set(ka, la)
+      const lb = byBlock.get(kb) ?? []
+      if (!lb.includes(ol.a.courseCode)) lb.push(ol.a.courseCode)
+      byBlock.set(kb, lb)
+      const pKey = [ol.a.courseCode, ol.b.courseCode].sort().join(' × ')
+      if (!seenPair.has(pKey)) {
+        seenPair.add(pKey)
+        pairs.push(pKey)
+      }
+    }
+    return { overlapByBlock: byBlock, overlapPairs: pairs }
+  }, [blocks])
   const inspectedCourse = inspectedCourseCode ? courses.find((c) => c.code === inspectedCourseCode) ?? null : null
   const inspectedCur = inspectedCourse ? effective(inspectedCourse, state) : null
   const inspectedUnlocks = inspectedCourse ? getCatalogRule(inspectedCourse.code)?.unlocks ?? [] : []
@@ -627,16 +648,22 @@ export function Calendar(props: Props) {
             const pOnline = isOnlineRoom(peekBlock.room)
             const seatsStr = pComp ? fmtSeats(pComp.seatsOpen, pComp.seatsTotal) : ''
             const secStr = pComp?.section ? `Sec ${fmtSec(pComp.section)}` : ''
+            const pOverlaps = overlapByBlock.get(blockKey(peekBlock)) ?? []
             return (
-              <span className="status-badge cal-peek-pill" role="status">
-                {peekBlock.courseCode} ({pCourse?.title || peekBlock.kind}) · {pLab ? '🧪 Lab' : '📘 Lecture'}
+              <span className={`status-badge cal-peek-pill ${pOverlaps.length ? 'bad' : ''}`} role="status">
+                {peekBlock.courseCode} ({pCourse?.title || peekBlock.kind}) · {pLab ? 'Lab' : 'Lecture'}
                 {secStr ? ` · ${secStr}` : ''} · {DAY_SHORT[peekBlock.day]} {fmtMin(peekBlock.start)}–{fmtMin(peekBlock.end)}
-                {pOnline ? ' · 🌐 Online' : peekBlock.room ? ` · ${peekBlock.room}` : ''}
+                {pOnline ? ' · Online' : peekBlock.room ? ` · ${peekBlock.room}` : ''}
                 {peekBlock.instructors[0] ? ` · ${peekBlock.instructors[0]}` : ''}
                 {seatsStr ? ` · ${seatsStr}` : ''}
+                {pOverlaps.length ? ` · Overriding with ${pOverlaps.join(', ')}` : ''}
               </span>
             )
-          })() : (
+          })() : overlapPairs.length > 0 ? (
+            <span className="status-badge bad" role="alert">
+              Overriding: {overlapPairs.join(' · ')}
+            </span>
+          ) : (
             <span className="suggest-sub">Drag to swap (hold on touch) · tap for sections</span>
           )}
           {dragToast ? <span className="status-badge accent">{dragToast}</span> : null}
@@ -740,6 +767,8 @@ export function Calendar(props: Props) {
                     const comp = opt?.components.find((cm) => cm.classNbr === b.classNbr)
                     const isLab = isLabBlock(b, course)
                     const isOnline = isOnlineRoom(b.room)
+                    const overlappingWith = overlapByBlock.get(bk) ?? []
+                    const isOverlapping = overlappingWith.length > 0
 
                     return (
                       <button
@@ -749,7 +778,7 @@ export function Calendar(props: Props) {
                           else blockElsRef.current.delete(bk)
                         }}
                         type="button"
-                        className={`cal-block ${tileClassFor(b.courseCode, tileMap)} ${isLab ? 'is-lab' : 'is-lecture'} ${isOnline ? 'is-online' : ''} ${yCls(b.start)} ${hCls(b.start, b.end)} ${laneCls(pl)} ${b.locked ? 'locked' : ''} ${isDraggingThis ? 'is-dragging' : ''} ${isCompanionFloating ? 'is-companion-floating' : isMovingCompanion ? 'dragging-source' : ''} ${isClashTarget ? 'is-clash-target' : ''} ${isClosedPicked ? 'closed-picked' : ''} ${isJustAdded ? 'just-added' : ''}`}
+                        className={`cal-block ${tileClassFor(b.courseCode, tileMap)} ${isLab ? 'is-lab' : 'is-lecture'} ${isOnline ? 'is-online' : ''} ${yCls(b.start)} ${hCls(b.start, b.end)} ${laneCls(pl)} ${b.locked ? 'locked' : ''} ${isDraggingThis ? 'is-dragging' : ''} ${isCompanionFloating ? 'is-companion-floating' : isMovingCompanion ? 'dragging-source' : ''} ${isClashTarget ? 'is-clash-target' : ''} ${isOverlapping ? 'is-overlapping' : ''} ${isClosedPicked ? 'closed-picked' : ''} ${isJustAdded ? 'just-added' : ''}`}
                         onMouseEnter={() => setPeekBlock(b)}
                         onMouseLeave={() => setPeekBlock((cur) => (cur && blockKey(cur) === bk ? null : cur))}
                         onPointerDown={(e) => onBlockPointerDown(e, b)}
@@ -769,14 +798,17 @@ export function Calendar(props: Props) {
                         <div className="cal-block-head">
                           <span>{b.courseCode}</span>
                           <span className={`block-kind-pill ${isLab ? 'lab' : 'lec'}`}>
-                            {isLab ? '🧪 Lab' : '📘 Lec'}
+                            {isLab ? 'LAB' : 'LEC'}
                           </span>
                         </div>
                         <div className="cal-block-meta">
                           {isMovingCompanion
                             ? `${b.kind} moves with swap`
-                            : `${b.locked ? '🔒 ' : ''}${comp?.section ? `Sec ${fmtSec(comp.section)} · ` : ''}${isOnline ? '🌐 Online' : (b.instructors[0] || b.room || b.kind)}`}
+                            : `${b.locked ? 'Locked · ' : ''}${comp?.section ? `Sec ${fmtSec(comp.section)} · ` : ''}${isOnline ? 'Online' : (b.instructors[0] || b.room || b.kind)}`}
                         </div>
+                        {isOverlapping ? (
+                          <div className="cal-overlap-tag">Overlaps {overlappingWith.join(', ')}</div>
+                        ) : null}
                       </button>
                     )
                   })}

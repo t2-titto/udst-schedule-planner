@@ -452,8 +452,11 @@ export function WaitWidget({ title = 'While we get everything ready' }: { title?
       if (nextStep >= p.solution.length) {
         sess.solIdx = nextStep
         setChessStatus('solved')
-        setChessMsg('Puzzle solved!')
+        setChessMsg('Puzzle solved! Loading next…')
         syncBoard(false)
+        chessTimerRef.current = window.setTimeout(() => {
+          void loadNextPuzzleRef.current()
+        }, 900)
       } else {
         const reply = p.solution[nextStep]
         setChessMsg('Good move!')
@@ -470,8 +473,11 @@ export function WaitWidget({ title = 'While we get everything ready' }: { title?
           sess.solIdx = afterReply
           if (afterReply >= p.solution.length) {
             setChessStatus('solved')
-            setChessMsg('Puzzle solved!')
+            setChessMsg('Puzzle solved! Loading next…')
             syncBoard(false)
+            chessTimerRef.current = window.setTimeout(() => {
+              void loadNextPuzzleRef.current()
+            }, 900)
           } else {
             setChessMsg('Your turn — keep finding the best move')
             syncBoard(true)
@@ -541,12 +547,19 @@ export function WaitWidget({ title = 'While we get everything ready' }: { title?
     syncBoard(true)
   }, [syncBoard])
 
+  const loadNextPuzzleRef = useRef<() => Promise<void>>(async () => {})
+
   const loadNextPuzzle = useCallback(async () => {
     setChessStatus('loading')
     const p = await nextChessPuzzle(() => api.chessPuzzle())
     applyNewPuzzle(p)
     void warmChessPuzzleCache(() => api.chessPuzzle(), CHESS_CACHE_LIMIT)
   }, [applyNewPuzzle])
+  loadNextPuzzleRef.current = loadNextPuzzle
+
+  useEffect(() => () => {
+    if (chessTimerRef.current != null) window.clearTimeout(chessTimerRef.current)
+  }, [])
 
   useEffect(() => {
     if (warmedRef.current) return

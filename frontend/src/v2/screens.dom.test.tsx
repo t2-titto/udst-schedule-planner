@@ -711,8 +711,8 @@ describe('Planie redesigned UI & UX flows', () => {
     expect(lecBtn).toBeTruthy()
     expect(labBtn).toBeTruthy()
     expect(lecBtn.textContent).not.toContain('9:30a–11a')
-    expect(labBtn.textContent).toContain('🧪 Lab')
-    expect(lecBtn.textContent).toContain('📘 Lec')
+    expect(labBtn.textContent).toContain('LAB')
+    expect(lecBtn.textContent).toContain('LEC')
 
     fireEvent.mouseEnter(labBtn)
     const peek = screen.getByRole('status')
@@ -721,5 +721,37 @@ describe('Planie redesigned UI & UX flows', () => {
     expect(peek.textContent).toContain('B2-204')
     fireEvent.mouseLeave(labBtn)
     expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('highlights overlapping courses placed side-by-side on Calendar as overriding', () => {
+    const o1: ClassOption = { id: 'o1', optionNo: '1', status: 'Open', components: [comp('101', '01', 'Dr. Maya', 0, 570, 660)] }
+    const o2: ClassOption = { id: 'o2', optionNo: '1', status: 'Open', components: [comp('102', '01', 'Dr. Karim', 0, 600, 690)] }
+    const { container } = render(
+      <Calendar
+        courses={[makeCourse('OVER 101', [o1], o1), makeCourse('OVER 102', [o2], o2)]}
+        state={emptyState()}
+        blocks={[
+          { courseCode: 'OVER 101', classNbr: '101', kind: 'Lecture', room: 'B1-101', instructors: ['Dr. Maya'], day: 0, start: 570, end: 660, locked: false, held: true },
+          { courseCode: 'OVER 102', classNbr: '102', kind: 'Lecture', room: 'B1-102', instructors: ['Dr. Karim'], day: 0, start: 600, end: 690, locked: false, held: false },
+        ]}
+        settings={DEFAULT_SETTINGS}
+        filters={{ open: true, waitlist: false, closed: false, allowRedo: false }}
+        onPickOption={() => {}}
+        onToggleLock={() => {}}
+        onToggleCourse={() => {}}
+        inspectedCourseCode={null}
+        onInspectCourse={() => {}}
+        favTeachers={[]}
+        onToggleFavTeacher={() => {}}
+        onToggleAllowRedo={() => {}}
+        sidebarOpen
+        onToggleSidebar={() => {}}
+      />,
+    )
+    const overlapping = container.querySelectorAll('.cal-block.is-overlapping')
+    expect(overlapping.length).toBe(2)
+    expect(screen.getByRole('alert').textContent).toContain('Overriding: OVER 101 × OVER 102')
+    expect(screen.getByText('Overlaps OVER 102')).toBeTruthy()
+    expect(screen.getByText('Overlaps OVER 101')).toBeTruthy()
   })
 })

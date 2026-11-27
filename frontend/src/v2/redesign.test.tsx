@@ -283,4 +283,17 @@ describe('Planie redesign helper invariants', () => {
     expect(onlineSug.prefNotice).toBeNull()
     expect(onlineSug.top[0].schedule.picks.find((p) => p.course.code === 'ONL 102')?.option.id).toBe('ob2')
   })
+
+  it('keeps Original · Untouched available in suggestions even after removing a held course', () => {
+    const oA: ClassOption = { id: 'ha1', optionNo: '1', status: 'Open', components: [comp('1', 'Lecture', '01', 'Dr. A', 0, 540, 600)] }
+    const oB: ClassOption = { id: 'hb1', optionNo: '1', status: 'Open', components: [comp('2', 'Lecture', '02', 'Dr. B', 1, 540, 600)] }
+    const oBAlt: ClassOption = { id: 'hb2', optionNo: '2', status: 'Open', components: [comp('3', 'Lecture', '03', 'Dr. B', 2, 540, 600)] }
+    const c1: PCourse = { code: 'ORIG 101', title: 'Course One', term: 'Winter 2027', units: 3, held: oA, options: [oA] }
+    const c2: PCourse = { code: 'ORIG 102', title: 'Course Two', term: 'Winter 2027', units: 3, held: oB, options: [oB, oBAlt] }
+    const afterRemove = buildSuggestions([c1, c2], { ...emptyState(), removed: ['ORIG 101'] }, DEFAULT_SETTINGS, DEFAULT_QUICK_SETUP)
+    expect(afterRemove.top.some((c) => c.isOriginal)).toBe(true)
+    const orig = afterRemove.top.find((c) => c.isOriginal)!
+    expect(orig.schedule.picks.map((p) => p.course.code).sort()).toEqual(['ORIG 101', 'ORIG 102'])
+    expect(orig.detail).toContain('Restore')
+  })
 })

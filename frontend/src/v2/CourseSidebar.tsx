@@ -344,9 +344,9 @@ export function CourseSidebar(props: Props) {
                   <div className="course-meta-row">
                     <div className="pill-row">
                       {isStandaloneLabTitle(c.title) ? (
-                        <span className="status-badge accent">🧪 Lab course</span>
+                        <span className="status-badge accent">Lab</span>
                       ) : cur?.components.some((cm) => /\b(lab|laboratory|tut|tutorial)\b/i.test(cm.kind)) && cur?.components.some((cm) => /\b(lec|lecture)\b/i.test(cm.kind)) ? (
-                        <span className="status-badge">📘 Lec + 🧪 Lab</span>
+                        <span className="status-badge">Lec + Lab</span>
                       ) : null}
                       {c.held ? <span className={`status-badge ${c.held.waitlisted ? 'warn' : 'ok'}`}>{c.held.waitlisted ? 'Waitlisted' : 'Enrolled'}</span> : null}
                       {c.held ? (
@@ -436,9 +436,9 @@ export function CourseSidebar(props: Props) {
                   <div className="course-meta-row">
                     <div className="pill-row">
                       {cand.labRole === 'lab' || isStandaloneLabTitle(cand.title) ? (
-                        <span className="status-badge accent">🧪 Lab course</span>
+                        <span className="status-badge accent">Lab</span>
                       ) : cand.labRole === 'lecture' ? (
-                        <span className="status-badge">📘 Lecture</span>
+                        <span className="status-badge">Lecture</span>
                       ) : null}
                       {cand.prereqStatus === 'check' ? (
                         <span className="status-badge warn" title={cand.prereqText}>● Check requirement</span>

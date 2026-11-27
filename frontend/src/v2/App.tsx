@@ -14,6 +14,7 @@ import { Done } from './Done'
 import { FuturePlanDrawer } from './FuturePlanDrawer'
 import { type TermMoveDraft } from './FutureSemestersStrip'
 import { optionStatusOf } from './guides'
+import { commit, redo, reset, startHistory, undo, type History } from './history'
 import { Login } from './Login'
 import {
   applySuggestion,
@@ -79,6 +80,20 @@ interface AccountPrefs {
   setup: QuickSetup
   retakeTerms: Record<string, string>
 }
+
+interface WorkspaceUndoStep {
+  courses: PCourse[]
+  state: PlannerState
+  moveDrafts: Record<string, TermMoveDraft>
+  retakeTerms: Record<string, string>
+}
+
+const emptyUndoStep = (): WorkspaceUndoStep => ({
+  courses: [],
+  state: emptyState(),
+  moveDrafts: {},
+  retakeTerms: {},
+})
 
 function readAccountPrefs(accountId: string | null | undefined, userHint: string | null | undefined): AccountPrefs {
   try {
@@ -165,8 +180,29 @@ export function App() {
   const [electiveChoices, setElectiveChoices] = useState<DegreeCourse[]>([])
 
   const [term, setTerm] = useState('Winter 2027')
-  const [courses, setCourses] = useState<PCourse[]>([])
-  const [state, setState] = useState<PlannerState>(() => emptyState())
+  const [workspaceHistory, setWorkspaceHistory] = useState<History<WorkspaceUndoStep>>(() => startHistory(emptyUndoStep()))
+  const { courses, state, moveDrafts, retakeTerms } = workspaceHistory.present
+  const canUndo = workspaceHistory.past.length > 0
+  const canRedo = workspaceHistory.future.length > 0
+
+  const setState = useCallback((updater: PlannerState | ((prev: PlannerState) => PlannerState)) => {
+    setWorkspaceHistory((h) => {
+      const nextState = typeof updater === 'function' ? updater(h.present.state) : updater
+      if (nextState === h.present.state) return h
+      return commit(h, { ...h.present, state: nextState }, Date.now())
+    })
+  }, [])
+
+  const setMoveDrafts = useCallback((
+    updater: Record<string, TermMoveDraft> | ((prev: Record<string, TermMoveDraft>) => Record<string, TermMoveDraft>),
+  ) => {
+    setWorkspaceHistory((h) => {
+      const nextDrafts = typeof updater === 'function' ? updater(h.present.moveDrafts) : updater
+      if (nextDrafts === h.present.moveDrafts) return h
+      return commit(h, { ...h.present, moveDrafts: nextDrafts }, Date.now())
+    })
+  }, [])
+
   const [enrolled, setEnrolled] = useState<Bootstrapped['loaded']['enrolled']>({
     term: 'Winter 2027',
     termRow: -1,
@@ -177,8 +213,6 @@ export function App() {
   const [degreeWire, setDegreeWire] = useState<WireDegree | null>(null)
   const [compatCoursesData, setCompatCoursesData] = useState<Record<string, { course: Course; openCount: number; waitlistCount: number; closedCount: number; notOffered: boolean }>>({})
   const [compatLoading, setCompatLoading] = useState(false)
-  const [moveDrafts, setMoveDrafts] = useState<Record<string, TermMoveDraft>>({})
-  const [retakeTerms, setRetakeTerms] = useState<Record<string, string>>({})
   const [favTeachers, setFavTeachers] = useState<string[]>([])
 
   const [inspectedCalendarCode, setInspectedCalendarCode] = useState<string | null>(null)
@@ -211,15 +245,12 @@ export function App() {
     activeAccountKeyRef.current = null
     if (clearAllSaved) clearAcademicData()
     setTerm('Winter 2027')
-    setCourses([])
-    setState(emptyState())
+    setWorkspaceHistory(reset(emptyUndoStep()))
     setSetup({ ...DEFAULT_QUICK_SETUP })
     setEnrolled({ term: 'Winter 2027', termRow: -1, rows: [], options: {}, unconfirmed: [] })
     setDegreeWire(null)
     setCompatCoursesData({})
     setCompatLoading(false)
-    setMoveDrafts({})
-    setRetakeTerms({})
     setFavTeachers([])
     setGroupChoicesMap({})
     setLoadingGroupsMap({})
@@ -279,15 +310,15 @@ export function App() {
       setTerm(activeTerm)
       setEnrolled(res.loaded.enrolled)
       setDegreeWire(wire)
-      setCourses(builtCourses)
       if (res.loaded.classStatuses) setClassStatuses(res.loaded.classStatuses)
-      setState((s) => {
-        const base = quietBackground ? s : emptyState()
+      setWorkspaceHistory((h) => {
+        const base = quietBackground ? h.present.state : emptyState()
         const merged = { ...base, unlocked: [...new Set([...base.unlocked, ...heldCodes])] }
         if (acctId) {
           writeSnapshot({ accountId: acctId, userHint, term: activeTerm, courses: builtCourses, state: merged, degreeWire: wire, enrolled: res.loaded.enrolled })
         }
-        return merged
+        const nextStep: WorkspaceUndoStep = { ...h.present, courses: builtCourses, state: merged }
+        return reset(nextStep)
       })
       setBootReady(true)
       if (!quietBackground) {
@@ -425,7 +456,17 @@ export function App() {
           (code, key, opts) => {
             if (seq !== loadSeq.current) return
             rememberHeldRead(res.loaded, code, key, opts)
-            setCourses((prev) => prev.map((c) => (c.code === code ? { ...c, key, options: sortBrowseable(opts) } : c)))
+            const sorted = sortBrowseable(opts)
+            const patchStep = (step: WorkspaceUndoStep): WorkspaceUndoStep => ({
+              ...step,
+              courses: step.courses.map((c) => (c.code === code ? { ...c, key, options: sorted } : c)),
+            })
+            setWorkspaceHistory((h) => ({
+              ...h,
+              past: h.past.map(patchStep),
+              present: patchStep(h.present),
+              future: h.future.map(patchStep),
+            }))
           },
           { cancelled: false },
         )
@@ -450,20 +491,24 @@ export function App() {
     }
     const loadedPrefs = readAccountPrefs(acctId, userHint)
     setSetup(loadedPrefs.setup)
-    setRetakeTerms(loadedPrefs.retakeTerms)
     setFavTeachers(readFavTeachers(acctId))
     const cached = freshLogin ? null : readSnapshot(acctId, userHint)
     if (cached && cached.courses.length > 0) {
       const heldCodes = cached.courses.filter((c) => c.held).map((c) => c.code)
       setTerm(cached.term)
-      setCourses(cached.courses)
-      setState({ ...cached.state, unlocked: [...new Set([...cached.state.unlocked, ...heldCodes])] })
+      setWorkspaceHistory(reset({
+        courses: cached.courses,
+        state: { ...cached.state, unlocked: [...new Set([...cached.state.unlocked, ...heldCodes])] },
+        moveDrafts: {},
+        retakeTerms: loadedPrefs.retakeTerms,
+      }))
       setDegreeWire(cached.degreeWire)
       setEnrolled(cached.enrolled)
       setBootReady(true)
       setScreen('workspace')
       void runBootstrap(true, { accountId: acctId, userHint })
     } else {
+      setWorkspaceHistory((h) => reset({ ...h.present, retakeTerms: loadedPrefs.retakeTerms }))
       setScreen('setup')
       void runBootstrap(false, { accountId: acctId, userHint })
     }
@@ -836,8 +881,7 @@ export function App() {
           choice: { ...pickedChoices, ...state.choice },
         }
         morphCaptureRef.current?.('schedule')
-        setCourses(nextCourses)
-        setState(nextState)
+        setWorkspaceHistory((h) => commit(h, { ...h.present, courses: nextCourses, state: nextState }, Date.now()))
         if (addedTimerRef.current != null) window.clearTimeout(addedTimerRef.current)
         setJustAddedCourse(newCourses[0].code)
         addedTimerRef.current = window.setTimeout(() => setJustAddedCourse(null), 1600)
@@ -848,7 +892,7 @@ export function App() {
           removed: state.removed.filter((r) => !restoredCodes.some((rc) => normCode(rc) === normCode(r))),
         }
         morphCaptureRef.current?.('schedule')
-        setState(nextState)
+        setWorkspaceHistory((h) => commit(h, { ...h.present, state: nextState }, Date.now()))
         setJustAddedCourse(restoredCodes[0])
         setAddNotice(describeAddedCourseStatus(courses, nextState, restoredCodes))
       } else if (notOfferedNames.length > 0) {
@@ -890,8 +934,7 @@ export function App() {
             ? { ...state, choice: { [added.code]: added.options[0].id, ...state.choice } }
             : state
           morphCaptureRef.current?.('schedule')
-          setCourses(nextCourses)
-          setState(nextState)
+          setWorkspaceHistory((h) => commit(h, { ...h.present, courses: nextCourses, state: nextState }, Date.now()))
           setJustAddedCourse(added.code)
           setAddNotice(describeAddedCourseStatus(nextCourses, nextState, [added.code]))
         }
@@ -939,6 +982,12 @@ export function App() {
     setState((s) => {
       const next = applySuggestion(courses, s, card.schedule)
       const picked = new Set(card.schedule.picks.map((p) => p.course.code))
+      if (card.isOriginal) {
+        return {
+          ...next,
+          removed: courses.filter((c) => !picked.has(c.code)).map((c) => c.code),
+        }
+      }
       const restored = next.removed.filter((r) => !picked.has(r))
       const withSkipped = card.skippedCodes?.length
         ? [...new Set([...restored, ...card.skippedCodes])]
@@ -946,9 +995,54 @@ export function App() {
       return { ...next, removed: withSkipped }
     })
     if (card.skippedCodes?.length) {
-      setAddNotice(`Removed ${card.skippedCodes.join(', ')} to apply "${card.label}" (use Restore in Planned anytime).`)
+      setAddNotice(`Removed ${card.skippedCodes.join(', ')} to apply "${card.label}" (use Restore or Ctrl+Z anytime).`)
     }
-  }, [courses])
+  }, [courses, setState])
+
+  const handleUndo = useCallback(() => {
+    morphCaptureRef.current?.('schedule')
+    setPendingPartialPick(null)
+    setWorkspaceHistory((h) => {
+      const prev = undo(h)
+      if (prev !== h) {
+        writeAccountPrefs(status?.accountId, status?.userHint, setup, prev.present.retakeTerms)
+      }
+      return prev
+    })
+  }, [setup, status?.accountId, status?.userHint])
+
+  const handleRedo = useCallback(() => {
+    morphCaptureRef.current?.('schedule')
+    setPendingPartialPick(null)
+    setWorkspaceHistory((h) => {
+      const next = redo(h)
+      if (next !== h) {
+        writeAccountPrefs(status?.accountId, status?.userHint, setup, next.present.retakeTerms)
+      }
+      return next
+    })
+  }, [setup, status?.accountId, status?.userHint])
+
+  useEffect(() => {
+    if (screen !== 'workspace') return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return
+      const target = e.target as HTMLElement | null
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)) {
+        return
+      }
+      const key = e.key.toLowerCase()
+      if (key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        handleUndo()
+      } else if ((key === 'z' && e.shiftKey) || (key === 'y' && !e.shiftKey)) {
+        e.preventDefault()
+        handleRedo()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [screen, handleUndo, handleRedo])
 
   const suggestions = useMemo(
     () => buildSuggestions(filterCoursesForSolver, state, settings, setup, favTeachers),
@@ -1066,6 +1160,24 @@ export function App() {
               ))}
             </select>
           ) : null}
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={!canUndo}
+            title="Undo (Ctrl+Z)"
+            onClick={handleUndo}
+          >
+            ↶ Undo
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={!canRedo}
+            title="Redo (Ctrl+Y)"
+            onClick={handleRedo}
+          >
+            ↷ Redo
+          </button>
           <button type="button" className="btn btn-sm" onClick={() => setFutureDrawerOpen(true)}>
             Future Plan{Object.keys(moveDrafts).length > 0 ? ` (${Object.keys(moveDrafts).length})` : ''}
           </button>
@@ -1215,12 +1327,14 @@ export function App() {
         exempted={exemptedMap}
         retakeTerms={retakeTerms}
         onRetakeCourse={(course: DegreeCourse, toTerm: string) => {
-          const nextRetake = { ...retakeTerms, [course.code]: toTerm }
-          setRetakeTerms(nextRetake)
-          writeAccountPrefs(status?.accountId, status?.userHint, setup, nextRetake)
-          if (course.plannable) {
-            setMoveDrafts((prev) => ({ ...prev, [course.code]: { course, fromTerm: course.term ?? toTerm, toTerm } }))
-          }
+          setWorkspaceHistory((h) => {
+            const nextRetake = { ...h.present.retakeTerms, [course.code]: toTerm }
+            writeAccountPrefs(status?.accountId, status?.userHint, setup, nextRetake)
+            const nextDrafts = course.plannable
+              ? { ...h.present.moveDrafts, [course.code]: { course, fromTerm: course.term ?? toTerm, toTerm } }
+              : h.present.moveDrafts
+            return commit(h, { ...h.present, retakeTerms: nextRetake, moveDrafts: nextDrafts }, Date.now())
+          })
           if (toTerm === term) {
             const m = /^(Winter|Spring|Fall)\s+(\d{4})$/.exec(term)
             const strm = m ? `1${m[2].slice(2)}${m[1] === 'Winter' ? 1 : m[1] === 'Spring' ? 5 : 8}` : '1271'
@@ -1240,14 +1354,13 @@ export function App() {
           }
         }}
         onCancelRetake={(code) => {
-          const nextRetake = { ...retakeTerms }
-          delete nextRetake[code]
-          setRetakeTerms(nextRetake)
-          writeAccountPrefs(status?.accountId, status?.userHint, setup, nextRetake)
-          setMoveDrafts((prev) => {
-            const next = { ...prev }
-            delete next[code]
-            return next
+          setWorkspaceHistory((h) => {
+            const nextRetake = { ...h.present.retakeTerms }
+            delete nextRetake[code]
+            writeAccountPrefs(status?.accountId, status?.userHint, setup, nextRetake)
+            const nextDrafts = { ...h.present.moveDrafts }
+            delete nextDrafts[code]
+            return commit(h, { ...h.present, retakeTerms: nextRetake, moveDrafts: nextDrafts }, Date.now())
           })
         }}
         onMoveCourse={(course: DegreeCourse, toTerm: string) => {
