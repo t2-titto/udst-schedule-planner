@@ -38,8 +38,8 @@ Keep the black window open while using the planner; closing it (or Ctrl+C) stops
 ### Updates check automatically with a CMD prompt
 Every time you double-click the Desktop shortcut, press `Ctrl+Alt+U`, or run the command above (including after restarting Windows):
 1. It makes sure your Desktop/Start Menu shortcut exists, checks GitHub for a newer commit, and tells you in the CMD window if an update is available.
-2. If you type **Y** (or press Enter), it stops any old server, downloads the verified GitHub commit, checks `CHECKSUMS.sha256`, incrementally rebuilds the local binary cleanly from `Cargo.lock`, and starts the updated server + opens `http://localhost:6767`.
-3. If you type **N** (or are offline), it skips the update and launches/opens your installed version.
+2. If you type **Y**, it stops any old server, downloads the verified GitHub commit, fails-closed verifies `CHECKSUMS.sha256` against every file, incrementally rebuilds the local binary cleanly from `Cargo.lock`, and starts the updated server + opens `http://127.0.0.1:6767`.
+3. If you press Enter / type **N** (or are offline), it skips the update and launches/opens your installed version.
 
 **One-command install / update right now:**
 ```powershell

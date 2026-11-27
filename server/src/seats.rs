@@ -52,8 +52,14 @@ pub fn safe_key(v: &Value) -> Option<Value> {
 impl SeatCheck {
     /// Refuse anything the page could not have produced, before a single request is made.
     pub fn valid(&self) -> Result<(), String> {
-        if self.course.is_empty() || self.course.len() > 24 || safe_key(&self.key).is_none() {
-            return Err(format!("{} has no usable course key. Fetch it from PeopleSoft again.", if self.course.is_empty() { "A course" } else { &self.course }));
+        let safe_course = !self.course.is_empty()
+            && self.course.len() <= 24
+            && self
+                .course
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b' ' | b'-' | b'_' | b'/' | b':'));
+        if !safe_course || safe_key(&self.key).is_none() {
+            return Err("Selected course has no usable course key. Fetch it from PeopleSoft again.".into());
         }
         if self.class_nbrs.is_empty() || self.class_nbrs.len() > 6 || self.class_nbrs.iter().any(|n| n.is_empty() || n.len() > 10 || !n.bytes().all(|b| b.is_ascii_digit())) {
             return Err(format!("{} has no usable class numbers.", self.course));

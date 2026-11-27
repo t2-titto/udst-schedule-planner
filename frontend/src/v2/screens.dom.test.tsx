@@ -476,7 +476,7 @@ describe('Planie redesigned UI & UX flows', () => {
       degreeWire: null,
       enrolled: { term: 'Winter 2027', termRow: -1, rows: [], options: {}, unconfirmed: [] },
     }))
-    window.localStorage.setItem(`${WORKSPACE_CACHE_PREFIX}slot_A`, JSON.stringify({
+    window.sessionStorage.setItem(`${WORKSPACE_CACHE_PREFIX}slot_A`, JSON.stringify({
       accountId: 'slot_A',
       userHint: '60••••11',
       term: 'Winter 2027',
@@ -531,7 +531,7 @@ describe('Planie redesigned UI & UX flows', () => {
     expect(window.localStorage.getItem('planie:workspace:v1')).toBeNull()
 
     clearAcademicData()
-    expect(window.localStorage.getItem(`${WORKSPACE_CACHE_PREFIX}slot_A`)).toBeNull()
+    expect(window.sessionStorage.getItem(`${WORKSPACE_CACHE_PREFIX}slot_A`)).toBeNull()
   })
 
   it('assigns strictly distinct theme-matched tile colors across up to 8 courses without collisions', () => {

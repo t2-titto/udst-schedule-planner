@@ -31,12 +31,12 @@ import { getCatalogRule } from './catalogRules'
 import { SetupWait, type LoadStage } from './SetupWait'
 import { buildSuggestions, currentScheduleSignature, DEFAULT_QUICK_SETUP, type QuickSetup, type SuggestionCard } from './suggestions'
 import { SuggestionsStrip, assignTileClasses } from './SuggestionsStrip'
-import { clearAcademicData, PREF_CACHE_PREFIX, WORKSPACE_CACHE_PREFIX } from './storage'
+import { clearAcademicData, FAV_TEACHERS_PREFIX, PREF_CACHE_PREFIX, WORKSPACE_CACHE_PREFIX } from './storage'
 import { applyTheme, readTheme, type ThemeMode } from './theme'
 import './app.css'
 
 const LEGACY_CACHE_KEY = 'planie:workspace:v1'
-const FAV_KEY = 'planie:favTeachers'
+const LEGACY_FAV_KEY = 'planie:favTeachers'
 
 interface WorkspaceSnapshot {
   accountId: string
@@ -51,8 +51,10 @@ interface WorkspaceSnapshot {
 function readSnapshot(accountId: string | null | undefined, userHint: string | null | undefined): WorkspaceSnapshot | null {
   try {
     window.localStorage.removeItem(LEGACY_CACHE_KEY)
+    window.sessionStorage.removeItem(LEGACY_CACHE_KEY)
     if (!accountId) return null
-    const raw = window.localStorage.getItem(WORKSPACE_CACHE_PREFIX + accountId)
+    window.localStorage.removeItem(WORKSPACE_CACHE_PREFIX + accountId)
+    const raw = window.sessionStorage.getItem(WORKSPACE_CACHE_PREFIX + accountId)
     if (!raw) return null
     const snap = JSON.parse(raw) as Partial<WorkspaceSnapshot> | null
     if (!snap || snap.accountId !== accountId) return null
@@ -68,7 +70,8 @@ function writeSnapshot(snap: WorkspaceSnapshot): void {
   try {
     if (!snap.accountId) return
     window.localStorage.removeItem(LEGACY_CACHE_KEY)
-    window.localStorage.setItem(WORKSPACE_CACHE_PREFIX + snap.accountId, JSON.stringify(snap))
+    window.localStorage.removeItem(WORKSPACE_CACHE_PREFIX + snap.accountId)
+    window.sessionStorage.setItem(WORKSPACE_CACHE_PREFIX + snap.accountId, JSON.stringify(snap))
   } catch { /* ignore */ }
 }
 
@@ -80,7 +83,8 @@ interface AccountPrefs {
 function readAccountPrefs(accountId: string | null | undefined, userHint: string | null | undefined): AccountPrefs {
   try {
     if (!accountId) return { setup: { ...DEFAULT_QUICK_SETUP }, retakeTerms: {} }
-    const raw = window.localStorage.getItem(PREF_CACHE_PREFIX + accountId)
+    window.localStorage.removeItem(PREF_CACHE_PREFIX + accountId)
+    const raw = window.sessionStorage.getItem(PREF_CACHE_PREFIX + accountId)
     if (!raw) return { setup: { ...DEFAULT_QUICK_SETUP }, retakeTerms: {} }
     const saved = JSON.parse(raw) as { accountId?: string; userHint?: string | null; setup?: QuickSetup; retakeTerms?: Record<string, string> } | null
     if (!saved || saved.accountId !== accountId || (userHint ?? null) !== (saved.userHint ?? null) || !saved.setup) {
@@ -98,12 +102,34 @@ function readAccountPrefs(accountId: string | null | undefined, userHint: string
 function writeAccountPrefs(accountId: string | null | undefined, userHint: string | null | undefined, setup: QuickSetup, retakeTerms: Record<string, string>): void {
   try {
     if (!accountId) return
-    window.localStorage.setItem(PREF_CACHE_PREFIX + accountId, JSON.stringify({
+    window.localStorage.removeItem(PREF_CACHE_PREFIX + accountId)
+    window.sessionStorage.setItem(PREF_CACHE_PREFIX + accountId, JSON.stringify({
       accountId,
       userHint: userHint ?? null,
       setup,
       retakeTerms,
     }))
+  } catch { /* ignore */ }
+}
+
+function readFavTeachers(accountId: string | null | undefined): string[] {
+  try {
+    window.localStorage.removeItem(LEGACY_FAV_KEY)
+    if (!accountId) return []
+    const raw = window.localStorage.getItem(FAV_TEACHERS_PREFIX + accountId)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    return Array.isArray(parsed) ? parsed.filter((t): t is string => typeof t === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function writeFavTeachers(accountId: string | null | undefined, favs: string[]): void {
+  try {
+    window.localStorage.removeItem(LEGACY_FAV_KEY)
+    if (!accountId) return
+    window.localStorage.setItem(FAV_TEACHERS_PREFIX + accountId, JSON.stringify(favs))
   } catch { /* ignore */ }
 }
 
@@ -153,9 +179,7 @@ export function App() {
   const [compatLoading, setCompatLoading] = useState(false)
   const [moveDrafts, setMoveDrafts] = useState<Record<string, TermMoveDraft>>({})
   const [retakeTerms, setRetakeTerms] = useState<Record<string, string>>({})
-  const [favTeachers, setFavTeachers] = useState<string[]>(() => {
-    try { return JSON.parse(window.localStorage.getItem(FAV_KEY) || '[]') as string[] } catch { return [] }
-  })
+  const [favTeachers, setFavTeachers] = useState<string[]>([])
 
   const [inspectedCalendarCode, setInspectedCalendarCode] = useState<string | null>(null)
   const [infoTarget, setInfoTarget] = useState<CourseInfoTarget | null>(null)
@@ -196,6 +220,7 @@ export function App() {
     setCompatLoading(false)
     setMoveDrafts({})
     setRetakeTerms({})
+    setFavTeachers([])
     setGroupChoicesMap({})
     setLoadingGroupsMap({})
     setElectiveChoices([])
@@ -426,6 +451,7 @@ export function App() {
     const loadedPrefs = readAccountPrefs(acctId, userHint)
     setSetup(loadedPrefs.setup)
     setRetakeTerms(loadedPrefs.retakeTerms)
+    setFavTeachers(readFavTeachers(acctId))
     const cached = freshLogin ? null : readSnapshot(acctId, userHint)
     if (cached && cached.courses.length > 0) {
       const heldCodes = cached.courses.filter((c) => c.held).map((c) => c.code)
@@ -1152,7 +1178,7 @@ export function App() {
                   const next = prev.some((t) => t.toLowerCase() === name.toLowerCase())
                     ? prev.filter((t) => t.toLowerCase() !== name.toLowerCase())
                     : [...prev, name]
-                  try { window.localStorage.setItem(FAV_KEY, JSON.stringify(next)) } catch { /* ignore */ }
+                  writeFavTeachers(status?.accountId, next)
                   return next
                 })
               }}

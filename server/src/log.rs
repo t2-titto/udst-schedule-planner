@@ -76,8 +76,9 @@ pub fn recent(n: usize) -> Vec<Value> {
 pub fn init(dir: &Path) -> std::io::Result<PathBuf> {
     #[cfg(unix)]
     {
-        use std::os::unix::fs::DirBuilderExt;
+        use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
         std::fs::DirBuilder::new().recursive(true).mode(0o700).create(dir)?;
+        let _ = std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700));
     }
     #[cfg(not(unix))]
     {
@@ -87,8 +88,10 @@ pub fn init(dir: &Path) -> std::io::Result<PathBuf> {
     let bytes = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
     #[cfg(unix)]
     let file = {
-        use std::os::unix::fs::OpenOptionsExt;
-        std::fs::OpenOptions::new().create(true).append(true).mode(0o600).open(&path)?
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+        let f = std::fs::OpenOptions::new().create(true).append(true).mode(0o600).open(&path)?;
+        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+        f
     };
     #[cfg(not(unix))]
     let file = std::fs::OpenOptions::new().create(true).append(true).open(&path)?;

@@ -29,6 +29,8 @@ export function Login({ onSignedIn, onSwitchAccount, initialError, theme, onTogg
     return () => { alive = false }
   }, [])
 
+  useEffect(() => () => setPass(''), [])
+
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!user.trim() || !pass || busy) return
@@ -36,11 +38,11 @@ export function Login({ onSignedIn, onSwitchAccount, initialError, theme, onTogg
     setError('')
     try {
       const res = await api.login(user.trim(), pass)
-      setPass('')
       onSignedIn(res)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Sign-in failed. Please check your credentials.')
     } finally {
+      setPass('')
       setBusy(false)
     }
   }

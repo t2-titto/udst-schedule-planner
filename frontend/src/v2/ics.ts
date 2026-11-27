@@ -11,7 +11,7 @@ function fmtTime(min: number): string {
 }
 
 function escapeIcs(text: string): string {
-  return text.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n')
+  return text.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n')
 }
 
 /** Parses DD/MM/YYYY date strings from PeopleSoft's dates range ("05/01/2027 - 14/04/2027"). */
@@ -94,7 +94,8 @@ export function downloadIcs(courses: PCourse[], state: PlannerState, term: strin
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `planie-${term.toLowerCase().replace(/\s+/g, '-')}.ics`
+  const safeSlug = (term || 'schedule').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'schedule'
+  a.download = `planie-${safeSlug}.ics`
   document.body.appendChild(a)
   a.click()
   a.remove()

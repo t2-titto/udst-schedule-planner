@@ -22,11 +22,22 @@ export interface Cache {
 }
 
 const KEY = 'schedule-planner:v2:cache'
+const ACCOUNT_SESSION_KEY = 'schedule-planner:account'
 export const HELD_TTL_MS = 12 * 60 * 60 * 1000
+
+function cacheKey(): string {
+  try {
+    const acct = window.sessionStorage.getItem(ACCOUNT_SESSION_KEY)
+    return acct ? `${KEY}:${acct}` : KEY
+  } catch {
+    return KEY
+  }
+}
 
 export function loadCache(): Cache | null {
   try {
-    const raw = window.localStorage.getItem(KEY)
+    try { window.localStorage.removeItem(KEY) } catch { /* ignore */ }
+    const raw = window.sessionStorage.getItem(cacheKey())
     if (!raw) return null
     const c = JSON.parse(raw) as Partial<Cache>
     if (typeof c.term !== 'string' || typeof c.keys !== 'object' || c.keys === null || typeof c.held !== 'object' || c.held === null) return null
@@ -38,7 +49,8 @@ export function loadCache(): Cache | null {
 
 function save(c: Cache): void {
   try {
-    window.localStorage.setItem(KEY, JSON.stringify(c))
+    try { window.localStorage.removeItem(KEY) } catch { /* ignore */ }
+    window.sessionStorage.setItem(cacheKey(), JSON.stringify(c))
   } catch {
     /* storage blocked or full: the planner just reads everything next time */
   }
@@ -46,6 +58,7 @@ function save(c: Cache): void {
 
 export function clearCache(): void {
   try {
+    window.sessionStorage.removeItem(cacheKey())
     window.localStorage.removeItem(KEY)
   } catch {
     /* ignore */

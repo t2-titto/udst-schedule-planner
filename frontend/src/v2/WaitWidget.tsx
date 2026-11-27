@@ -522,7 +522,12 @@ export function WaitWidget({ title = 'While we get everything ready' }: { title?
 
   const applyNewPuzzle = useCallback((p: ChessPuzzle) => {
     if (chessTimerRef.current != null) window.clearTimeout(chessTimerRef.current)
-    const ch = new Chess(p.fen)
+    let ch: Chess
+    try {
+      ch = new Chess(p.fen)
+    } catch {
+      ch = new Chess('6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1')
+    }
     chessRef.current = ch
     const side: 'white' | 'black' = ch.turn() === 'w' ? 'white' : 'black'
     const lm: [Key, Key] | undefined =

@@ -3,6 +3,7 @@ name = "schedule-planner-server"
 version = "0.1.0"
 edition = "2024"
 description = "Local-only backend for the schedule planner: links the frankie PeopleSoft connector."
+build = false
 
 [dependencies]
 axum = "0.8"

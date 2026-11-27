@@ -225,6 +225,16 @@ pub fn credit_limit(term: &str) -> f64 {
     }
 }
 
+pub fn effective_credit_limit(term: &str, override_limit: bool) -> f64 {
+    if !override_limit {
+        credit_limit(term)
+    } else if term.to_ascii_lowercase().contains("spring") {
+        15.0
+    } else {
+        24.0
+    }
+}
+
 fn check_credit_cap(c: &CreditsReq, context_msg: &str) -> Result<(), String> {
     let default_limit = credit_limit(&c.term);
     if (c.limit - default_limit).abs() > 1e-9 {
@@ -239,12 +249,15 @@ fn check_credit_cap(c: &CreditsReq, context_msg: &str) -> Result<(), String> {
     if !(c.after.is_finite() && c.after >= 0.0) {
         return Err("The credit total is not a number. Nothing was sent.".into());
     }
-    let effective_limit = if c.override_limit { 24.0 } else { c.limit };
+    let effective_limit = effective_credit_limit(&c.term, c.override_limit);
     if c.after > effective_limit + 1e-9 {
         return Err(format!(
             "{} credits is over the {} credits PeopleSoft allows in {}. {context_msg}",
             c.after, effective_limit, c.term
         ));
+    }
+    if c.override_limit {
+        log::event("credit_override", json!({ "term": c.term, "limit": effective_limit, "after": c.after }));
     }
     Ok(())
 }
@@ -440,7 +453,7 @@ pub fn apply_recount(st: &mut WriteState, req: &ApplyReq) -> Result<(), ApiErr> 
         }
     }
     let floor = term_floor(rows, &req.term, &skip, true, 0.0).map_err(|m| err(StatusCode::UNPROCESSABLE_ENTITY, format!("{m} Nothing was sent.")))?;
-    let limit = if c.override_limit { 24.0 } else { credit_limit(&req.term) };
+    let limit = effective_credit_limit(&req.term, c.override_limit);
     if floor > limit + 1e-9 {
         return Err(err(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -558,7 +571,7 @@ pub fn plan_preview(st: &mut WriteState, args: &Value, credits: &CreditsReq, exp
         .tool("degree_tree", &json!({}))
         .map_err(|m| err(StatusCode::UNPROCESSABLE_ENTITY, m))?;
     let fresh = fresh_tree_total(&tree, &credits.term, &moved, false).map_err(|m| err(StatusCode::UNPROCESSABLE_ENTITY, m))?;
-    let limit = if credits.override_limit { 24.0 } else { credit_limit(&credits.term) };
+    let limit = effective_credit_limit(&credits.term, credits.override_limit);
     if fresh > limit + 1e-9 {
         return Err(err(
             StatusCode::UNPROCESSABLE_ENTITY,

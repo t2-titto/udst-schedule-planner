@@ -25,6 +25,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tower_http::services::{ServeDir, ServeFile};
+use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 const DEFAULT_PORT: u16 = 6767;
 const JAR_COOKIE: &str = "planie_jar";
@@ -36,7 +37,7 @@ const LOGIN_COOLDOWN: Duration = Duration::from_secs(10);
 const JAR_IDLE_TTL: Duration = Duration::from_secs(2 * 60 * 60);
 const CRED_IDLE_TTL: Duration = Duration::from_secs(2 * 60 * 60);
 
-const CSP_HEADER: &str = "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-src https://files.gamezhero.com https://subwaysurfers76.github.io; frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
+const CSP_HEADER: &str = "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-src https://files.gamezhero.com; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
 
 #[derive(Debug)]
 pub struct ApiErr(pub StatusCode, pub String);
@@ -103,7 +104,7 @@ impl Inner {
             demo_state: Arc::new(Mutex::new(demo::DemoState::new())),
             last_seen: Mutex::new(Instant::now()),
         });
-        if tokio::runtime::Handle::try_current().is_ok() {
+        if demo && tokio::runtime::Handle::try_current().is_ok() {
             write::start_idle_watch(Arc::clone(&app));
         }
         app
@@ -135,10 +136,13 @@ pub struct Shared {
     confirm_phrase: bool,
     parallel_reads: usize,
     preset_creds: Option<Creds>,
+    preset_launch_token: Mutex<Option<String>>,
     hosts: HashSet<String>,
     origins: HashSet<String>,
     jars: Mutex<HashMap<String, Jar>>,
     login_cooldowns: Mutex<HashMap<String, Instant>>,
+    login_in_flight: Mutex<HashSet<String>>,
+    last_puzzle_fetch: Mutex<Option<Instant>>,
 }
 
 impl Shared {
@@ -147,6 +151,7 @@ impl Shared {
         confirm_phrase: bool,
         parallel_reads: usize,
         preset_creds: Option<Creds>,
+        preset_launch_token: Option<String>,
         hosts: HashSet<String>,
         origins: HashSet<String>,
     ) -> Arc<Self> {
@@ -155,10 +160,13 @@ impl Shared {
             confirm_phrase,
             parallel_reads,
             preset_creds,
+            preset_launch_token: Mutex::new(preset_launch_token),
             hosts,
             origins,
             jars: Mutex::new(HashMap::new()),
             login_cooldowns: Mutex::new(HashMap::new()),
+            login_in_flight: Mutex::new(HashSet::new()),
+            last_puzzle_fetch: Mutex::new(None),
         })
     }
 
@@ -208,19 +216,12 @@ fn header_account_id(headers: &HeaderMap) -> Option<&str> {
         .filter(|s| !s.is_empty() && s.len() <= 64 && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-'))
 }
 
-fn jar_cookie_header(jar_id: &str, headers: &HeaderMap, clear: bool) -> Result<HeaderValue, ApiErr> {
-    let secure = headers
-        .get("x-forwarded-proto")
-        .and_then(|v| v.to_str().ok())
-        .is_some_and(|p| p.eq_ignore_ascii_case("https"));
-    let mut s = if clear {
+fn jar_cookie_header(jar_id: &str, _headers: &HeaderMap, clear: bool) -> Result<HeaderValue, ApiErr> {
+    let s = if clear {
         format!("{JAR_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0")
     } else {
         format!("{JAR_COOKIE}={jar_id}; HttpOnly; SameSite=Strict; Path=/")
     };
-    if secure {
-        s.push_str("; Secure");
-    }
     HeaderValue::from_str(&s).map_err(|_| ApiErr(StatusCode::INTERNAL_SERVER_ERROR, "internal error".into()))
 }
 
@@ -235,13 +236,18 @@ fn check_request_origin(shared: &Shared, method: &Method, headers: &HeaderMap, p
         return Err(StatusCode::FORBIDDEN);
     }
 
+    let origin = headers.get(ORIGIN).and_then(|v| v.to_str().ok()).map(|s| s.trim().to_ascii_lowercase());
     if let Some(sfs) = headers.get("sec-fetch-site").and_then(|v| v.to_str().ok()) {
         if sfs.eq_ignore_ascii_case("cross-site") {
             return Err(StatusCode::FORBIDDEN);
         }
+        if path.starts_with("/api") && sfs.eq_ignore_ascii_case("same-site") {
+            if !origin.as_deref().is_some_and(|o| shared.origins.contains(o)) {
+                return Err(StatusCode::FORBIDDEN);
+            }
+        }
     }
 
-    let origin = headers.get(ORIGIN).and_then(|v| v.to_str().ok()).map(|s| s.trim().to_ascii_lowercase());
     let mutating = !matches!(*method, Method::GET | Method::HEAD | Method::OPTIONS);
     if path.starts_with("/api") && mutating {
         match origin.as_deref() {
@@ -265,6 +271,7 @@ fn apply_security_headers(res: &mut Response, is_api: bool) {
     h.insert("x-frame-options", HeaderValue::from_static("DENY"));
     h.insert("x-content-type-options", HeaderValue::from_static("nosniff"));
     h.insert("referrer-policy", HeaderValue::from_static("no-referrer"));
+    h.insert("permissions-policy", HeaderValue::from_static("camera=(), microphone=(), geolocation=()"));
     h.insert(CONTENT_SECURITY_POLICY, HeaderValue::from_static(CSP_HEADER));
     if is_api {
         h.insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
@@ -284,7 +291,7 @@ async fn guard(State(shared): State<Arc<Shared>>, req: Request<Body>, next: Next
     res
 }
 
-fn evict_stale_jars(jars: &mut HashMap<String, Jar>) {
+fn ensure_jar_capacity(jars: &mut HashMap<String, Jar>) -> Result<(), ApiErr> {
     jars.retain(|_, j| {
         let keep = j.last_seen.elapsed() <= JAR_IDLE_TTL;
         if !keep {
@@ -297,12 +304,13 @@ fn evict_stale_jars(jars: &mut HashMap<String, Jar>) {
         keep
     });
     if jars.len() >= MAX_JARS {
-        if let Some(oldest_key) = jars
+        if let Some(oldest_demo) = jars
             .iter()
+            .filter(|(_, j)| j.slots.iter().all(|s| s.app.demo))
             .min_by_key(|(_, j)| j.last_seen)
             .map(|(k, _)| k.clone())
         {
-            if let Some(j) = jars.remove(&oldest_key) {
+            if let Some(j) = jars.remove(&oldest_demo) {
                 for slot in &j.slots {
                     slot.app.shutdown.store(true, Ordering::SeqCst);
                     write::drop_session_now(&slot.app);
@@ -311,6 +319,10 @@ fn evict_stale_jars(jars: &mut HashMap<String, Jar>) {
             }
         }
     }
+    if jars.len() >= MAX_JARS {
+        return Err(ApiErr(StatusCode::SERVICE_UNAVAILABLE, "Too many active sessions. Try again shortly.".into()));
+    }
+    Ok(())
 }
 
 fn slot_user_hint(app: &App) -> Option<String> {
@@ -378,7 +390,49 @@ impl FromRequestParts<Arc<Shared>> for AuthApp {
     }
 }
 
-async fn status_handler(State(shared): State<Arc<Shared>>, headers: HeaderMap) -> Result<Response, ApiErr> {
+#[derive(Deserialize, Default)]
+struct StatusQuery {
+    launch: Option<String>,
+}
+
+fn claim_preset_launch(shared: &Arc<Shared>, headers: &HeaderMap, q_launch: Option<&str>) -> bool {
+    if shared.preset_creds.is_none() {
+        return false;
+    }
+    let supplied = headers
+        .get("x-planner-launch")
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim)
+        .or_else(|| q_launch.map(str::trim))
+        .unwrap_or("");
+    if supplied.is_empty() {
+        return false;
+    }
+    let mut tok_guard = shared.preset_launch_token.lock().unwrap_or_else(|e| e.into_inner());
+    let Some(expected) = tok_guard.as_ref() else {
+        return false;
+    };
+    // Constant-length byte fold comparison, then consume the single-use token.
+    let valid = expected.len() == supplied.len()
+        && expected
+            .as_bytes()
+            .iter()
+            .zip(supplied.as_bytes())
+            .fold(0u8, |acc, (a, b)| acc | (a ^ b))
+            == 0;
+    if valid {
+        *tok_guard = None;
+        true
+    } else {
+        false
+    }
+}
+
+async fn status_handler(
+    State(shared): State<Arc<Shared>>,
+    headers: HeaderMap,
+    Query(q): Query<StatusQuery>,
+) -> Result<Response, ApiErr> {
     let req_acct = header_account_id(&headers);
     if let Some(jar_id) = parse_cookie(&headers, JAR_COOKIE) {
         let found = {
@@ -391,19 +445,28 @@ async fn status_handler(State(shared): State<Arc<Shared>>, headers: HeaderMap) -
         }
     }
 
-    // In --demo or --credentials-file mode, bootstrap an automatic session jar on initial status read.
-    if shared.demo || shared.preset_creds.is_some() {
-        let app = shared.new_app(shared.preset_creds.clone());
+    // Auto-bootstrap on GET /api/status is restricted to harmless --demo mode or a verified one-time --credentials-file launch token.
+    let claimed_preset = claim_preset_launch(&shared, &headers, q.launch.as_deref());
+    if shared.demo || claimed_preset {
+        let creds = if claimed_preset { shared.preset_creds.clone() } else { None };
+        let app = shared.new_app(creds);
+        if claimed_preset && tokio::runtime::Handle::try_current().is_ok() {
+            write::start_idle_watch(Arc::clone(&app));
+        }
         let jar_id = rand_hex(16);
         let slot_id = rand_hex(8);
-        let user_key = shared
-            .preset_creds
-            .as_ref()
-            .map(|c| c.user.trim().to_ascii_lowercase())
-            .unwrap_or_else(|| "demo".into());
+        let user_key = if claimed_preset {
+            shared
+                .preset_creds
+                .as_ref()
+                .map(|c| normalize_user_key(c.user()))
+                .unwrap_or_else(|| "preset".into())
+        } else {
+            "demo".into()
+        };
         {
             let mut jars = shared.jars.lock().unwrap_or_else(|e| e.into_inner());
-            evict_stale_jars(&mut jars);
+            ensure_jar_capacity(&mut jars)?;
             jars.insert(
                 jar_id.clone(),
                 Jar {
@@ -435,12 +498,41 @@ async fn status_handler(State(shared): State<Arc<Shared>>, headers: HeaderMap) -
     Ok(Json(status_payload_for(&tmp, None)).into_response())
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Zeroize, ZeroizeOnDrop)]
 struct LoginReq {
     #[serde(alias = "username")]
     user: String,
     #[serde(alias = "password")]
     pass: String,
+}
+
+fn normalize_user_key(raw: &str) -> String {
+    let s = raw.trim().to_ascii_lowercase();
+    s.strip_suffix("@udst.edu.qa").unwrap_or(&s).to_string()
+}
+
+struct InFlightGuard {
+    shared: Arc<Shared>,
+    key: String,
+}
+
+impl Drop for InFlightGuard {
+    fn drop(&mut self) {
+        if let Ok(mut set) = self.shared.login_in_flight.lock() {
+            set.remove(&self.key);
+        }
+    }
+}
+
+fn acquire_in_flight(shared: &Arc<Shared>, user_key: &str) -> Result<InFlightGuard, ApiErr> {
+    let mut set = shared.login_in_flight.lock().unwrap_or_else(|e| e.into_inner());
+    if !set.insert(user_key.to_string()) {
+        return Err(ApiErr(
+            StatusCode::TOO_MANY_REQUESTS,
+            "Sign-in is already in progress for this student number. Wait a moment and try again.".into(),
+        ));
+    }
+    Ok(InFlightGuard { shared: Arc::clone(shared), key: user_key.to_string() })
 }
 
 fn check_cooldown(shared: &Shared, user_key: &str) -> Result<(), ApiErr> {
@@ -460,7 +552,9 @@ fn record_failed_login(shared: &Shared, user_key: String) {
     let mut map = shared.login_cooldowns.lock().unwrap_or_else(|e| e.into_inner());
     map.retain(|_, t| t.elapsed() < LOGIN_COOLDOWN);
     if map.len() >= MAX_LOGIN_COOLDOWNS {
-        map.clear();
+        if let Some(oldest) = map.iter().min_by_key(|(_, t)| *t).map(|(k, _)| k.clone()) {
+            map.remove(&oldest);
+        }
     }
     map.insert(user_key, Instant::now());
 }
@@ -476,83 +570,84 @@ async fn login_handler(
     headers: HeaderMap,
     Json(req): Json<LoginReq>,
 ) -> Result<Response, ApiErr> {
-    let user_key = req.user.trim().to_ascii_lowercase();
+    let user_key = normalize_user_key(&req.user);
     if user_key.is_empty() || req.pass.is_empty() {
         return Err(ApiErr(StatusCode::BAD_REQUEST, "Enter both your student number and password.".into()));
     }
     if req.user.len() > 64 || req.pass.len() > 256 {
         return Err(ApiErr(StatusCode::BAD_REQUEST, "Credentials are too long.".into()));
     }
-    if !shared.demo {
+    let _in_flight = if !shared.demo {
         check_cooldown(&shared, &user_key)?;
-    }
-
-    let creds = Creds {
-        user: req.user.trim().to_string(),
-        pass: req.pass,
+        let g = acquire_in_flight(&shared, &user_key)?;
+        check_cooldown(&shared, &user_key)?;
+        Some(g)
+    } else {
+        None
     };
+
+    let creds = Creds::new(&req.user, &req.pass)
+        .map_err(|m| ApiErr(StatusCode::BAD_REQUEST, m.to_string()))?;
     let app = shared.new_app(Some(creds.clone()));
     if !shared.demo {
         if let Err(e) = write::sign_in(&app, creds).await {
             app.shutdown.store(true, Ordering::SeqCst);
+            *app.creds.lock().unwrap_or_else(|e| e.into_inner()) = None;
             record_failed_login(&shared, user_key);
             return Err(e);
         }
         clear_failed_login(&shared, &user_key);
+        if tokio::runtime::Handle::try_current().is_ok() {
+            write::start_idle_watch(Arc::clone(&app));
+        }
     }
 
     let existing_jar = parse_cookie(&headers, JAR_COOKIE).map(str::to_string);
     let slot_id = rand_hex(8);
-    let (jar_id, effective_slot_id, need_cookie) = {
+    let new_jid = rand_hex(16);
+    let effective_slot_id = {
         let mut jars = shared.jars.lock().unwrap_or_else(|e| e.into_inner());
-        evict_stale_jars(&mut jars);
-        if let Some(jid) = existing_jar.filter(|id| jars.contains_key(id)) {
-            let jar = jars.get_mut(&jid).unwrap();
-            jar.last_seen = Instant::now();
-            if let Some(prev) = jar.slots.iter_mut().find(|s| s.user_key == user_key) {
-                prev.app.shutdown.store(true, Ordering::SeqCst);
-                write::drop_session_now(&prev.app);
-                prev.app = Arc::clone(&app);
-                let sid = prev.id.clone();
-                jar.active = Some(sid.clone());
-                (jid, sid, false)
-            } else {
-                if jar.slots.len() >= MAX_ACCOUNTS_PER_JAR {
-                    let removed = jar.slots.remove(0);
-                    removed.app.shutdown.store(true, Ordering::SeqCst);
-                    write::drop_session_now(&removed.app);
-                }
-                jar.slots.push(AccountSlot {
-                    id: slot_id.clone(),
-                    user_key,
-                    app: Arc::clone(&app),
-                });
-                jar.active = Some(slot_id.clone());
-                (jid, slot_id, false)
-            }
+        ensure_jar_capacity(&mut jars)?;
+        // Rotate jar identifier on every login to prevent session fixation while preserving other tabs/accounts in this browser jar.
+        let mut jar = existing_jar
+            .as_deref()
+            .and_then(|id| jars.remove(id))
+            .unwrap_or_else(|| Jar {
+                slots: Vec::new(),
+                active: None,
+                last_seen: Instant::now(),
+            });
+        jar.last_seen = Instant::now();
+        let chosen_slot = if let Some(prev) = jar.slots.iter_mut().find(|s| s.user_key == user_key) {
+            prev.app.shutdown.store(true, Ordering::SeqCst);
+            write::drop_session_now(&prev.app);
+            *prev.app.creds.lock().unwrap_or_else(|e| e.into_inner()) = None;
+            prev.app = Arc::clone(&app);
+            let sid = prev.id.clone();
+            jar.active = Some(sid.clone());
+            sid
         } else {
-            let jid = rand_hex(16);
-            jars.insert(
-                jid.clone(),
-                Jar {
-                    slots: vec![AccountSlot {
-                        id: slot_id.clone(),
-                        user_key,
-                        app: Arc::clone(&app),
-                    }],
-                    active: Some(slot_id.clone()),
-                    last_seen: Instant::now(),
-                },
-            );
-            (jid, slot_id, true)
-        }
+            if jar.slots.len() >= MAX_ACCOUNTS_PER_JAR {
+                let removed = jar.slots.remove(0);
+                removed.app.shutdown.store(true, Ordering::SeqCst);
+                write::drop_session_now(&removed.app);
+                *removed.app.creds.lock().unwrap_or_else(|e| e.into_inner()) = None;
+            }
+            jar.slots.push(AccountSlot {
+                id: slot_id.clone(),
+                user_key,
+                app: Arc::clone(&app),
+            });
+            jar.active = Some(slot_id.clone());
+            slot_id
+        };
+        jars.insert(new_jid.clone(), jar);
+        chosen_slot
     };
 
     log::event("login_ok", json!({ "demo": shared.demo }));
     let mut res = Json(status_payload_for(&app, Some(&effective_slot_id))).into_response();
-    if need_cookie {
-        res.headers_mut().insert(SET_COOKIE, jar_cookie_header(&jar_id, &headers, false)?);
-    }
+    res.headers_mut().insert(SET_COOKIE, jar_cookie_header(&new_jid, &headers, false)?);
     Ok(res)
 }
 
@@ -668,6 +763,9 @@ async fn classes_handler(AuthApp(app): AuthApp) -> Result<Json<Value>, ApiErr> {
 }
 
 async fn sections_handler(AuthApp(app): AuthApp, Json(req): Json<SectionsReq>) -> Result<Json<Value>, ApiErr> {
+    if req.rows.len() > 200 || req.known.len() > 200 {
+        return Err(ApiErr(StatusCode::BAD_REQUEST, "Too many courses requested at once.".into()));
+    }
     write::sections(&app, req.rows, req.known).await.map(Json)
 }
 
@@ -722,20 +820,43 @@ async fn apply_progress_handler(AuthApp(app): AuthApp) -> Result<Json<Value>, Ap
     write::apply_progress(State(app)).await
 }
 
-async fn chess_puzzle_handler() -> Result<Json<Value>, ApiErr> {
-    let out = tokio::process::Command::new("curl")
-        .args([
-            "-sS",
-            "--max-time",
-            "6",
-            "-H",
-            "Accept: application/json",
-            "-H",
-            "User-Agent: PlanieSchedulePlanner/1.0",
-            "https://lichess.org/api/puzzle/next",
-        ])
-        .output()
+async fn chess_puzzle_handler(
+    AuthApp(_app): AuthApp,
+    State(shared): State<Arc<Shared>>,
+) -> Result<Json<Value>, ApiErr> {
+    {
+        let mut last = shared.last_puzzle_fetch.lock().unwrap_or_else(|e| e.into_inner());
+        if last.is_some_and(|t| t.elapsed() < Duration::from_millis(120)) {
+            return Err(ApiErr(StatusCode::TOO_MANY_REQUESTS, "Slow down puzzle requests slightly.".into()));
+        }
+        *last = Some(Instant::now());
+    }
+    #[cfg(unix)]
+    let curl_bin = if std::path::Path::new("/usr/bin/curl").is_file() {
+        "/usr/bin/curl"
+    } else {
+        "curl"
+    };
+    #[cfg(not(unix))]
+    let curl_bin = "curl";
+    let mut cmd = tokio::process::Command::new(curl_bin);
+    cmd.kill_on_drop(true).args([
+        "-sS",
+        "--proto",
+        "=https",
+        "--max-filesize",
+        "65536",
+        "--max-time",
+        "6",
+        "-H",
+        "Accept: application/json",
+        "-H",
+        "User-Agent: PlanieSchedulePlanner/1.0",
+        "https://lichess.org/api/puzzle/next",
+    ]);
+    let out = tokio::time::timeout(Duration::from_secs(7), cmd.output())
         .await
+        .map_err(|_| ApiErr(StatusCode::SERVICE_UNAVAILABLE, "Lichess timed out".into()))?
         .map_err(|_| ApiErr(StatusCode::SERVICE_UNAVAILABLE, "Lichess offline".into()))?;
     if !out.status.success() {
         return Err(ApiErr(StatusCode::SERVICE_UNAVAILABLE, "Lichess unreachable".into()));
@@ -743,6 +864,12 @@ async fn chess_puzzle_handler() -> Result<Json<Value>, ApiErr> {
     let body: Value = serde_json::from_slice(&out.stdout)
         .map_err(|_| ApiErr(StatusCode::BAD_GATEWAY, "Invalid Lichess response".into()))?;
     let p = body.get("puzzle").ok_or_else(|| ApiErr(StatusCode::BAD_GATEWAY, "Missing puzzle payload".into()))?;
+    let valid_id = p["id"].as_str().is_some_and(|s| !s.is_empty() && s.len() <= 64);
+    let valid_fen = p["fen"].as_str().is_some_and(|s| s.len() <= 128 && s.contains('/') && s.contains(' '));
+    let valid_sol = p["solution"].as_array().is_some_and(|a| !a.is_empty() && a.len() <= 20);
+    if !valid_id || !valid_fen || !valid_sol {
+        return Err(ApiErr(StatusCode::BAD_GATEWAY, "Malformed Lichess puzzle payload".into()));
+    }
     Ok(Json(json!({
         "id": p["id"],
         "rating": p["rating"],
@@ -788,20 +915,24 @@ fn allowed_hosts_and_origins(port: u16, dev_origins: Option<&str>) -> (HashSet<S
     let mut hosts = HashSet::new();
     let mut origins = HashSet::new();
     for h in ["localhost", "127.0.0.1", "[::1]"] {
-        hosts.insert(h.to_string());
         hosts.insert(format!("{h}:{port}"));
         origins.insert(format!("http://{h}:{port}"));
-        origins.insert(format!("https://{h}:{port}"));
-        origins.insert(format!("http://{h}"));
-        origins.insert(format!("https://{h}"));
+        if port == 80 || port == 443 {
+            hosts.insert(h.to_string());
+            origins.insert(format!("http://{h}"));
+        }
     }
     if let Some(extra) = dev_origins {
         for raw in extra.split(',') {
             let o = raw.trim().trim_end_matches('/').to_ascii_lowercase();
-            if o.starts_with("http://") || o.starts_with("https://") {
-                origins.insert(o.clone());
-                if let Some(host_part) = o.split("://").nth(1) {
+            let rest = o.strip_prefix("http://").or_else(|| o.strip_prefix("https://"));
+            if let Some(host_part) = rest {
+                if !host_part.is_empty()
+                    && !host_part.contains(['/', '?', '#', '@'])
+                    && !host_part.chars().any(char::is_whitespace)
+                {
                     hosts.insert(host_part.to_string());
+                    origins.insert(o);
                 }
             }
         }
@@ -850,11 +981,19 @@ fn dist_dir() -> PathBuf {
 }
 
 fn read_credentials_file(path: &str) -> Result<Creds, String> {
-    let raw = std::fs::read_to_string(path).map_err(|e| format!("Cannot read {path}: {e}"))?;
+    let raw = Zeroizing::new(std::fs::read_to_string(path).map_err(|e| format!("Cannot read {path}: {e}"))?);
     let mut lines = raw.lines().map(str::trim).filter(|l| !l.is_empty());
-    let user = lines.next().ok_or("Credentials file is empty")?.to_string();
-    let pass = lines.next().ok_or("Credentials file needs two lines: student number then password")?.to_string();
-    Ok(Creds { user, pass })
+    let user = lines.next().ok_or("Credentials file is empty")?;
+    let pass = lines.next().ok_or("Credentials file needs two lines: student number then password")?;
+    Creds::new(user, pass).map_err(str::to_string)
+}
+
+fn default_log_dir() -> PathBuf {
+    #[cfg(windows)]
+    if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+        return PathBuf::from(local).join("udst-schedule-planner").join("logs");
+    }
+    PathBuf::from("logs")
 }
 
 #[tokio::main]
@@ -896,6 +1035,7 @@ async fn main() {
         },
         None => None,
     };
+    let preset_launch_token = preset_creds.as_ref().map(|_| rand_hex(16));
 
     let confirm_phrase = std::env::var("PLANNER_CONFIRM").ok().as_deref() == Some("phrase");
     let parallel_reads = std::env::var("PLANNER_PARALLEL_READS")
@@ -906,17 +1046,37 @@ async fn main() {
     let dev_origins = std::env::var("PLANNER_DEV_ORIGINS").ok();
     let (hosts, origins) = allowed_hosts_and_origins(port, dev_origins.as_deref());
 
-    let shared = Shared::new(demo, confirm_phrase, parallel_reads, preset_creds, hosts, origins);
+    let shared = Shared::new(
+        demo,
+        confirm_phrase,
+        parallel_reads,
+        preset_creds,
+        preset_launch_token.clone(),
+        hosts,
+        origins,
+    );
     start_jar_reaper(Arc::clone(&shared));
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
-    let _ = log::init(&PathBuf::from("logs"));
-    let listener = tokio::net::TcpListener::bind(addr).await.expect("bind address");
-    log::event("server_start", json!({ "port": port, "demo": demo }));
-    eprintln!("Planie running at http://127.0.0.1:{port}{}", if demo { " (--demo)" } else { "" });
+    let v4_addr = SocketAddr::from(([127, 0, 0, 1], port));
+    let v6_addr = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 1], port));
+    let _ = log::init(&default_log_dir());
+    let listener_v4 = tokio::net::TcpListener::bind(v4_addr).await.expect("bind loopback address");
+    let bound_port = listener_v4.local_addr().map(|a| a.port()).unwrap_or(port);
+    let listener_v6 = tokio::net::TcpListener::bind(v6_addr).await.ok();
+    log::event("server_start", json!({ "port": bound_port, "demo": demo, "ipv6": listener_v6.is_some() }));
+    eprintln!("Planie running at http://127.0.0.1:{bound_port}{}", if demo { " (--demo)" } else { "" });
+    if let Some(tok) = preset_launch_token {
+        eprintln!("Launch link (--credentials-file, single-use): http://127.0.0.1:{bound_port}/?launch={tok}");
+    }
 
     let router = build_router(shared, dist_dir());
-    axum::serve(listener, router).await.expect("serve");
+    if let Some(v6) = listener_v6 {
+        let r6 = router.clone();
+        tokio::spawn(async move {
+            let _ = axum::serve(v6, r6).await;
+        });
+    }
+    axum::serve(listener_v4, router).await.expect("serve");
 }
 
 #[cfg(test)]
@@ -927,7 +1087,7 @@ mod tests {
 
     fn test_router(demo: bool) -> (Arc<Shared>, Router) {
         let (hosts, origins) = allowed_hosts_and_origins(8787, None);
-        let shared = Shared::new(demo, false, 2, None, hosts, origins);
+        let shared = Shared::new(demo, false, 2, None, None, hosts, origins);
         let router = build_router(Arc::clone(&shared), PathBuf::from("../frontend/dist"));
         (shared, router)
     }
@@ -1037,9 +1197,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn global_login_cooldown_persists_across_new_requests() {
+    async fn global_login_cooldown_persists_across_new_requests_and_normalizes_domain() {
         let (shared, app) = test_router(false);
-        record_failed_login(&shared, "60099999".into());
+        record_failed_login(&shared, normalize_user_key("60099999"));
         let req = Request::builder()
             .method(Method::POST)
             .uri("/api/session")
@@ -1047,9 +1207,42 @@ mod tests {
             .header(ORIGIN, "http://localhost:8787")
             .header("x-planner-request", "1")
             .header("content-type", "application/json")
-            .body(Body::from(json!({ "user": "60099999", "pass": "wrong" }).to_string()))
+            .body(Body::from(json!({ "user": "60099999@udst.edu.qa", "pass": "wrong" }).to_string()))
             .unwrap();
         let res = app.oneshot(req).await.unwrap();
         assert_eq!(res.status(), StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    #[tokio::test]
+    async fn preset_credentials_require_single_use_launch_token_and_chess_requires_auth() {
+        let (hosts, origins) = allowed_hosts_and_origins(8787, Some("http://localhost:5173,http://evil.com/path"));
+        assert!(!hosts.contains("localhost"));
+        assert!(origins.contains("http://localhost:5173"));
+        assert!(!origins.contains("http://evil.com/path"));
+
+        let creds = Creds::new("60012345", "secret").unwrap();
+        let tok = "deadbeef01234567deadbeef01234567".to_string();
+        let shared = Shared::new(false, false, 2, Some(creds), Some(tok.clone()), hosts, origins);
+        let app = build_router(Arc::clone(&shared), PathBuf::from("../frontend/dist"));
+
+        // Without launch token: status must NOT sign in or mint a jar.
+        let r_unauth = app.clone().oneshot(base_req(Method::GET, "/api/status", "127.0.0.1:8787", None, false)).await.unwrap();
+        assert_eq!(r_unauth.status(), StatusCode::OK);
+        assert!(r_unauth.headers().get(SET_COOKIE).is_none());
+        assert_eq!(shared.jars.lock().unwrap().len(), 0);
+
+        // Chess endpoint requires an authenticated session.
+        let r_chess = app.clone().oneshot(base_req(Method::GET, "/api/games/chess-puzzle", "127.0.0.1:8787", None, false)).await.unwrap();
+        assert_eq!(r_chess.status(), StatusCode::UNAUTHORIZED);
+
+        // With single-use launch token: signs in once, second attempt fails to claim again.
+        let r_claim = app.clone().oneshot(base_req(Method::GET, &format!("/api/status?launch={tok}"), "127.0.0.1:8787", None, false)).await.unwrap();
+        assert_eq!(r_claim.status(), StatusCode::OK);
+        assert!(r_claim.headers().get(SET_COOKIE).is_some());
+        assert_eq!(shared.jars.lock().unwrap().len(), 1);
+
+        let r_replay = app.oneshot(base_req(Method::GET, &format!("/api/status?launch={tok}"), "127.0.0.1:8787", None, false)).await.unwrap();
+        assert!(r_replay.headers().get(SET_COOKIE).is_none());
+        assert_eq!(shared.jars.lock().unwrap().len(), 1);
     }
 }

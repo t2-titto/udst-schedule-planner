@@ -47,6 +47,22 @@ const FALLBACK_PUZZLES: ChessPuzzle[] = [
 const memCache: ChessPuzzle[] = []
 const playedIds = new Set<string>()
 let storageHydrated = false
+const UCI_RE = /^[a-h][1-8][a-h][1-8][qrbn]?$/
+
+export function isValidChessPuzzle(raw: unknown): raw is ChessPuzzle {
+  if (!raw || typeof raw !== 'object') return false
+  const p = raw as Record<string, unknown>
+  if (typeof p.id !== 'string' || p.id.length === 0 || p.id.length > 64) return false
+  if (typeof p.fen !== 'string' || p.fen.length < 10 || p.fen.length > 128) return false
+  const fenParts = p.fen.trim().split(/\s+/)
+  if (fenParts.length < 2 || fenParts[0].split('/').length !== 8 || (fenParts[1] !== 'w' && fenParts[1] !== 'b')) return false
+  if (typeof p.rating !== 'number' || !Number.isFinite(p.rating)) return false
+  if (!Array.isArray(p.solution) || p.solution.length === 0 || p.solution.length > 20) return false
+  if (!p.solution.every((m) => typeof m === 'string' && UCI_RE.test(m))) return false
+  if (p.lastMove !== undefined && (typeof p.lastMove !== 'string' || !UCI_RE.test(p.lastMove))) return false
+  if (p.themes !== undefined && (!Array.isArray(p.themes) || !p.themes.every((t) => typeof t === 'string'))) return false
+  return true
+}
 
 function hydrateCacheFromStorage(): void {
   if (storageHydrated) return
@@ -58,16 +74,11 @@ function hydrateCacheFromStorage(): void {
     if (!Array.isArray(parsed)) return
     for (const p of parsed) {
       if (
-        p &&
-        typeof p === 'object' &&
-        typeof (p as ChessPuzzle).id === 'string' &&
-        typeof (p as ChessPuzzle).fen === 'string' &&
-        Array.isArray((p as ChessPuzzle).solution) &&
-        (p as ChessPuzzle).solution.length > 0 &&
+        isValidChessPuzzle(p) &&
         memCache.length < CHESS_CACHE_LIMIT &&
-        !memCache.some((m) => m.id === (p as ChessPuzzle).id)
+        !memCache.some((m) => m.id === p.id)
       ) {
-        memCache.push({ ...(p as ChessPuzzle), source: 'cached' })
+        memCache.push({ ...p, source: 'cached' })
       }
     }
   } catch { /* ignore storage errors */ }
@@ -92,7 +103,7 @@ export function clearChessPuzzleCache(): void {
 
 export function pushPuzzleToCache(puzzle: ChessPuzzle): void {
   hydrateCacheFromStorage()
-  if (!puzzle.id || !puzzle.fen || puzzle.solution.length === 0) return
+  if (!isValidChessPuzzle(puzzle)) return
   if (memCache.some((p) => p.id === puzzle.id)) return
   memCache.unshift({ ...puzzle, source: puzzle.source ?? 'live' })
   if (memCache.length > CHESS_CACHE_LIMIT) {
@@ -112,7 +123,7 @@ export async function warmChessPuzzleCache(
     tries++
     try {
       const p = await fetcher()
-      if (p?.id && p?.fen && Array.isArray(p.solution) && p.solution.length > 0) {
+      if (isValidChessPuzzle(p)) {
         pushPuzzleToCache({ ...p, source: 'live' })
       }
       if (memCache.length < targetCount) {
@@ -138,7 +149,7 @@ export async function nextChessPuzzle(fetcher: () => Promise<ChessPuzzle>): Prom
     attempts++
     try {
       const live = await fetcher()
-      if (live?.id && live?.fen && Array.isArray(live.solution) && live.solution.length > 0) {
+      if (isValidChessPuzzle(live)) {
         if (playedIds.has(live.id) && attempts < 2) continue
         playedIds.add(live.id)
         pushPuzzleToCache({ ...live, source: 'live' })

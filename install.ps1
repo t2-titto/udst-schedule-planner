@@ -6,20 +6,22 @@
 # $env:UDST_NO_LAUNCH = "1" installs/updates without opening the planner (used by the launcher).
 
 $ErrorActionPreference = "Stop"
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
-$Repo       = "t2-titto/udst-schedule-planner"
-$MingwZip   = "https://github.com/brechtsanders/winlibs_mingw/releases/download/16.2.0posix-23.1.3-14.0.0-ucrt-r3/winlibs-x86_64-posix-seh-gcc-16.2.0-mingw-w64ucrt-14.0.0-r3.zip"
-$InstallDir = Join-Path $env:LOCALAPPDATA "udst-schedule-planner"
-$AppDir     = Join-Path $InstallDir "app"
-$MingwDir   = Join-Path $InstallDir "mingw64"
-$CargoBin   = Join-Path $env:USERPROFILE ".cargo\bin"
-$ExePath    = Join-Path $AppDir "server\target\release\schedule-planner-server.exe"
-$Launcher   = Join-Path $InstallDir "Start-UDST-Planner.bat"
-$Update     = ($env:UDST_UPDATE -eq "1")
-$NoLaunch   = ($env:UDST_NO_LAUNCH -eq "1")
-$TargetSha  = if ($env:UDST_TARGET_SHA -and ($env:UDST_TARGET_SHA -match "^[0-9a-fA-F]{40}$")) { $env:UDST_TARGET_SHA.Trim().ToLowerInvariant() } else { $null }
+$Repo        = "t2-titto/udst-schedule-planner"
+$MingwZip    = "https://github.com/brechtsanders/winlibs_mingw/releases/download/16.2.0posix-23.1.3-14.0.0-ucrt-r3/winlibs-x86_64-posix-seh-gcc-16.2.0-mingw-w64ucrt-14.0.0-r3.zip"
+$MingwSha256 = "3c69305081e4a647144339a936244fcf7d3d9e558319e1ad7be2cd2886d4b6a1"
+$InstallDir  = Join-Path $env:LOCALAPPDATA "udst-schedule-planner"
+$AppDir      = Join-Path $InstallDir "app"
+$MingwDir    = Join-Path $InstallDir "mingw64"
+$CargoBin    = Join-Path $env:USERPROFILE ".cargo\bin"
+$ExePath     = Join-Path $AppDir "server\target\release\schedule-planner-server.exe"
+$Launcher    = Join-Path $InstallDir "Start-UDST-Planner.bat"
+$Update      = ($env:UDST_UPDATE -eq "1")
+$NoLaunch    = ($env:UDST_NO_LAUNCH -eq "1")
+$TargetSha   = if ($env:UDST_TARGET_SHA -and ($env:UDST_TARGET_SHA -match "^[0-9a-fA-F]{40}$")) { $env:UDST_TARGET_SHA.Trim().ToLowerInvariant() } else { $null }
 $VersionFile = Join-Path $InstallDir "version.txt"
+$StageDir    = Join-Path $InstallDir ("tmp-" + [guid]::NewGuid().ToString("N"))
 
 function Step($n, $msg) { Write-Host "  [$n/5] " -ForegroundColor Cyan -NoNewline; Write-Host $msg -ForegroundColor White }
 function Ok($msg)   { Write-Host "        [OK] $msg" -ForegroundColor Green }
@@ -49,31 +51,61 @@ function Get-RemoteSha {
 function Verify-Checksums($rootDir) {
     $manifest = Join-Path $rootDir "CHECKSUMS.sha256"
     if (-not (Test-Path $manifest)) {
-        Info "No CHECKSUMS.sha256 in archive; skipping file hash verification."
-        return
+        throw "Integrity check failed: missing CHECKSUMS.sha256 in GitHub archive."
     }
     $lines = Get-Content -Path $manifest -Encoding ASCII | Where-Object { $_.Trim() -and -not $_.Trim().StartsWith("#") }
+    $expectedFiles = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
     $checked = 0
+    $prefixLen = $rootDir.TrimEnd('\','/').Length + 1
     foreach ($line in $lines) {
         if ($line -match "^\s*([0-9a-fA-F]{64})\s+\*?(.+?)\s*$") {
             $expected = $Matches[1].ToLowerInvariant()
-            $rel = ($Matches[2] -replace '/', '\')
+            $relRaw = ($Matches[2] -replace '\\', '/').TrimStart('/')
+            if ($relRaw -match "(^|/)\.\.(/|$)") { throw "Integrity check failed: invalid path $relRaw in manifest." }
+            $rel = ($relRaw -replace '/', '\')
             $target = Join-Path $rootDir $rel
-            if (-not (Test-Path $target)) { throw "Integrity check failed: missing $rel in GitHub archive." }
+            if (-not (Test-Path $target -PathType Leaf)) { throw "Integrity check failed: missing $relRaw in GitHub archive." }
             $actual = (Get-FileHash -Path $target -Algorithm SHA256).Hash.ToLowerInvariant()
-            if ($actual -ne $expected) { throw "Integrity check failed for $rel (expected $expected, got $actual)." }
+            if ($actual -ne $expected) { throw "Integrity check failed for $relRaw (expected $expected, got $actual)." }
+            [void]$expectedFiles.Add($relRaw)
             $checked++
         }
     }
-    Ok "Verified $checked file hashes from GitHub commit manifest."
+    if ($checked -lt 10) { throw "Integrity check failed: CHECKSUMS.sha256 manifest is unexpectedly small ($checked entries)." }
+    $actualFiles = Get-ChildItem -Path $rootDir -Recurse -File
+    foreach ($f in $actualFiles) {
+        $relPath = ($f.FullName.Substring($prefixLen) -replace '\\', '/')
+        if ($relPath -ieq "CHECKSUMS.sha256") { continue }
+        if (-not $expectedFiles.Contains($relPath)) {
+            throw "Integrity check failed: unexpected unverified file '$relPath' found in archive."
+        }
+    }
+    Ok "Verified $checked file hashes (fail-closed) from GitHub commit manifest."
+}
+function Test-OwnedPlannerProc($proc) {
+    $path = $null
+    try { $path = $proc.Path } catch { return $false }
+    if (-not $path -or ($path -ne $ExePath)) { return $false }
+    try {
+        $curSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+        $wmi = Get-CimInstance Win32_Process -Filter "ProcessId = $($proc.Id)" -ErrorAction Stop
+        $owner = Invoke-CimMethod -InputObject $wmi -MethodName GetOwnerSid -ErrorAction Stop
+        return ($owner.ReturnValue -eq 0 -and $owner.Sid -eq $curSid)
+    } catch {
+        return $false
+    }
 }
 function Stop-Planner {
     $procs = Get-Process -Name "schedule-planner-server" -ErrorAction SilentlyContinue
+    $stopped = $false
     foreach ($p in $procs) {
-        $path = $null; try { $path = $p.Path } catch {}
-        if (-not $path -or $path -eq $ExePath) { Info "Stopping running planner (PID $($p.Id))..."; Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+        if (Test-OwnedPlannerProc $p) {
+            Info "Stopping running planner (PID $($p.Id))..."
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+            $stopped = $true
+        }
     }
-    if ($procs) { Start-Sleep -Seconds 1 }
+    if ($stopped) { Start-Sleep -Seconds 1 }
 }
 
 Write-Host ""
@@ -107,16 +139,18 @@ try {
 
     # 1. Download exact GitHub commit archive
     Step 1 "Checking app files in $InstallDir..."
+    New-Item -ItemType Directory -Force -Path $StageDir | Out-Null
     if ($alreadyBuilt -and -not $Update) {
         Ok "Already downloaded and up to date."
     } else {
+        if (-not $RemoteSha) {
+            throw "Could not resolve GitHub commit SHA (offline or rate-limited). Refusing unpinned download."
+        }
         Stop-Planner
-        $RepoZip = if ($RemoteSha) { "https://github.com/$Repo/archive/$RemoteSha.zip" } else { "https://github.com/$Repo/archive/refs/heads/main.zip" }
-        $ZipFile    = Join-Path $env:TEMP "udst-schedule-planner-commit.zip"
-        $ExtractDir = Join-Path $env:TEMP "udst-schedule-planner-extract"
-        Remove-Item -Recurse -Force $ExtractDir -ErrorAction SilentlyContinue
-        Remove-Item -Force $ZipFile -ErrorAction SilentlyContinue
-        Info "Fetching exact commit archive from GitHub..."
+        $RepoZip    = "https://github.com/$Repo/archive/$RemoteSha.zip"
+        $ZipFile    = Join-Path $StageDir "commit.zip"
+        $ExtractDir = Join-Path $StageDir "extract"
+        Info "Fetching exact commit archive ($($RemoteSha.Substring(0,7))) from GitHub..."
         Download $RepoZip $ZipFile
         try { Expand-Archive -Path $ZipFile -DestinationPath $ExtractDir -Force }
         catch { throw "Downloaded file is corrupt ($($_.Exception.Message)). Re-run the installer." }
@@ -126,11 +160,18 @@ try {
         }
         Verify-Checksums $Inner.FullName
         New-Item -ItemType Directory -Force -Path $AppDir | Out-Null
-        # Copy over updated commit files while preserving server\target (Cargo build cache) for fast rebuilds
+        # Purge stale app files while preserving server\target (Cargo build cache) for fast rebuilds
+        foreach ($entry in (Get-ChildItem -Path $AppDir -Force -ErrorAction SilentlyContinue)) {
+            if ($entry.Name -ieq "server") {
+                foreach ($sub in (Get-ChildItem -Path $entry.FullName -Force -ErrorAction SilentlyContinue)) {
+                    if ($sub.Name -ine "target") { Remove-Item -Recurse -Force $sub.FullName }
+                }
+            } else {
+                Remove-Item -Recurse -Force $entry.FullName
+            }
+        }
         & robocopy $Inner.FullName $AppDir /E /XD target /NFL /NDL /NJH /NJS /NP | Out-Null
         if ($LASTEXITCODE -ge 8) { throw "Copying app files failed (robocopy code $LASTEXITCODE). Is a file open in another program?" }
-        Remove-Item -Force $ZipFile -ErrorAction SilentlyContinue
-        Remove-Item -Recurse -Force $ExtractDir -ErrorAction SilentlyContinue
         $Downloaded = $true
         Ok "Downloaded commit and prebuilt web UI from GitHub."
     }
@@ -152,16 +193,14 @@ try {
         Ok "Binary already built; toolchain not needed."
     } elseif (-not $hasCargo) {
         Info "Installing official signed Rust toolchain (GNU target, user-only)..."
-        $Rustup = Join-Path $env:TEMP "rustup-init.exe"
+        $Rustup = Join-Path $StageDir "rustup-init.exe"
         Download "https://win.rustup.rs/x86_64" $Rustup
         $sig = Get-AuthenticodeSignature -FilePath $Rustup
         if (-not $sig -or $sig.Status -ne 'Valid') {
-            Remove-Item -Force $Rustup -ErrorAction SilentlyContinue
             throw "Official rustup-init.exe signature verification failed (Status: $($sig.Status))."
         }
         Ok "Verified official Rust Authenticode signature."
         Run-Native $Rustup @("-y","--default-host","x86_64-pc-windows-gnu","--profile","minimal","--no-modify-path") "rustup-init"
-        Remove-Item -Force $Rustup -ErrorAction SilentlyContinue
         $env:PATH = "$CargoBin;$env:PATH"; $needGnu = $true
         Ok "Installed Rust in $env:USERPROFILE\.cargo"
     } elseif (-not $hostInfo) {
@@ -179,11 +218,15 @@ try {
         if (Test-Path $mingwBin) { $env:PATH = "$mingwBin;$env:PATH" }
         if (-not (Get-Command gcc -ErrorAction SilentlyContinue)) {
             Info "Downloading portable MinGW-w64 (no admin, ~1-2 min)..."
-            $MZip = Join-Path $env:TEMP "winlibs-mingw.zip"
+            $MZip = Join-Path $StageDir "winlibs-mingw.zip"
             Remove-Item -Recurse -Force $MingwDir -ErrorAction SilentlyContinue
             Download $MingwZip $MZip
+            $mActual = (Get-FileHash -Path $MZip -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($mActual -ne $MingwSha256) {
+                throw "MinGW toolchain SHA-256 verification failed (expected $MingwSha256, got $mActual)."
+            }
+            Ok "Verified MinGW-w64 toolchain SHA-256 digest."
             Expand-Archive -Path $MZip -DestinationPath $InstallDir -Force
-            Remove-Item -Force $MZip -ErrorAction SilentlyContinue
             $env:PATH = "$mingwBin;$env:PATH"
             if (-not (Get-Command gcc -ErrorAction SilentlyContinue)) { throw "GCC not found after extracting MinGW." }
             Ok "Extracted portable GCC toolchain."
@@ -220,5 +263,6 @@ try {
     Write-Host ""
     if (-not $NoLaunch) { Start-Process -FilePath "cmd.exe" -ArgumentList "/k", "`"$Launcher`"" }
 } finally {
+    if ($StageDir -and (Test-Path $StageDir)) { Remove-Item -Recurse -Force $StageDir -ErrorAction SilentlyContinue }
     if ($Mutex) { $Mutex.ReleaseMutex(); $Mutex.Dispose() }
 }

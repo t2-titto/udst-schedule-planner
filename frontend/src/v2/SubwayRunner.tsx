@@ -19,7 +19,8 @@ export function SubwayRunner() {
           title="Subway Surfers HTML5 Game"
           src={SUBWAY_EMBED_URL}
           className="subway-iframe"
-          sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-popups"
+          sandbox="allow-scripts allow-same-origin"
+          referrerPolicy="no-referrer"
           allowFullScreen
         />
       </div>

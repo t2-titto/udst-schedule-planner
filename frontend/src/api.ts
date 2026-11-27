@@ -240,7 +240,19 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   status: async () => {
-    const st = await call<Status>('/status')
+    let launch: string | null = null
+    if (typeof window !== 'undefined') {
+      try {
+        const params = new URLSearchParams(window.location.search)
+        launch = params.get('launch')?.trim() || null
+        if (launch && window.history?.replaceState) {
+          params.delete('launch')
+          const qs = params.toString()
+          window.history.replaceState({}, '', `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`)
+        }
+      } catch { /* ignore */ }
+    }
+    const st = await call<Status>(launch ? `/status?launch=${encodeURIComponent(launch)}` : '/status')
     if (st.accountId) setAccountId(st.accountId)
     return st
   },

@@ -238,7 +238,7 @@ pub fn build_live_with_said(creds: &Creds, said: Option<SaidBuf>) -> Result<Box<
             return Ok(make());
         }
     }
-    let c = Credentials::new(creds.user.trim(), &creds.pass).map_err(|_| "Credentials not accepted.".to_string())?;
+    let c = Credentials::new(creds.user().trim(), creds.pass()).map_err(|_| "Credentials not accepted.".to_string())?;
     let http = ReqwestHttp::new(PS_TIMEOUT).map_err(|f| format!("Could not start the HTTP client: {}", f.safe_code()))?;
     let timed = match said {
         Some(buf) => Timed::with_said(http, buf),
@@ -363,6 +363,7 @@ pub fn drop_session_now(app: &App) {
     });
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn disarm_now(app: &App) {
     app.stop.store(true, Ordering::SeqCst);
     if let Ok(mut s) = app.snap.lock() {
@@ -371,15 +372,20 @@ pub fn disarm_now(app: &App) {
     if let Ok(mut p) = app.prestaged.lock() {
         p.clear();
     }
+    if let Ok(mut g) = app.write.try_lock() {
+        g.disarm();
+    }
     log::event("disarm_requested", json!({}));
-    let a = app.clone();
-    tokio::spawn(async move {
-        let _ = with_state(&a, "disarm", |st| {
-            st.disarm();
-            Ok(())
-        })
-        .await;
-    });
+    if tokio::runtime::Handle::try_current().is_ok() {
+        let a = app.clone();
+        tokio::spawn(async move {
+            let _ = with_state(&a, "disarm", |st| {
+                st.disarm();
+                Ok(())
+            })
+            .await;
+        });
+    }
 }
 
 pub fn start_idle_watch(app: App) {
@@ -572,6 +578,17 @@ pub async fn arm(State(app): State<App>, Json(req): Json<ArmReq>) -> Result<Json
 }
 
 pub async fn disarm(State(app): State<App>) -> Json<Value> {
-    disarm_now(&app);
+    app.stop.store(true, Ordering::SeqCst);
+    if let Ok(mut p) = app.prestaged.lock() {
+        p.clear();
+    }
+    let _ = with_state(&app, "disarm", |st| {
+        st.disarm();
+        Ok(())
+    })
+    .await;
+    if let Ok(mut s) = app.snap.lock() {
+        s.armed = false;
+    }
     Json(status_json(&app))
 }

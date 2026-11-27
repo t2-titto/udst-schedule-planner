@@ -8,8 +8,14 @@ use zeroize::Zeroize;
 
 #[derive(Clone)]
 pub struct Creds {
-    pub user: String,
-    pub pass: String,
+    user: String,
+    pass: String,
+}
+
+impl std::fmt::Debug for Creds {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Creds").field("user", &"[REDACTED]").field("pass", &"[REDACTED]").finish()
+    }
 }
 
 impl Drop for Creds {
@@ -37,6 +43,14 @@ impl Creds {
             user: user.to_string(),
             pass: pass.to_string(),
         })
+    }
+
+    pub fn user(&self) -> &str {
+        &self.user
+    }
+
+    pub fn pass(&self) -> &str {
+        &self.pass
     }
 
     /// A hint that is safe to show in the UI: first two characters and a mask.

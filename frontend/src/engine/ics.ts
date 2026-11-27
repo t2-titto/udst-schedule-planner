@@ -70,7 +70,7 @@ export { prettyDate }
 
 // ------------------------------------------------------------------ text rules (RFC 5545)
 
-export const escapeText = (s: string): string => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n')
+export const escapeText = (s: string): string => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n')
 
 const enc = new TextEncoder()
 
@@ -206,7 +206,7 @@ export function buildIcs(schedule: Schedule, opts: IcsOptions): string {
     const uid = `${sl.pick.course.code.replace(/\s+/g, '')}-${sl.comp.classNbr || sl.comp.kind}-${sl.days.join('')}-${sl.start}-${compact(range.start)}@schedule-planner`
     lines.push(
       'BEGIN:VEVENT',
-      `UID:${uid}`,
+      `UID:${escapeText(uid)}`,
       `DTSTAMP:${stamp}`,
       `DTSTART;TZID=${TZ}:${local(first, sl.start)}`,
       `DTEND;TZID=${TZ}:${local(first, sl.end)}`,

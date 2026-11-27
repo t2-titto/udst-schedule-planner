@@ -2046,7 +2046,7 @@ fn run_apply(req: &ApplyReq, main: WriteState, helper: impl Fn() -> Box<dyn Back
     let ctx = JobCtx::for_test();
     *ctx.job.lock().unwrap() = Some(new_job(req));
     let mut st = main;
-    let creds = Some(Creds { user: "u".into(), pass: "p".into() });
+    let creds = Some(Creds::new("u", "p").unwrap());
     let stop = Arc::new(AtomicBool::new(false));
     let r = apply_run(&mut st, &ctx, &creds, req, &stop);
     settle_job(&ctx, &r);

@@ -5,7 +5,7 @@ use super::planning::{
 };
 use super::reads::{code_of, PREVIEW_TOOLS};
 use super::state::{
-    armed_backend, build_demo_with_state, build_live_with_said, disarm_now, step, with_state, Backend, SaidBuf, WriteState,
+    armed_backend, build_demo_with_state, build_live_with_said, step, with_state, Backend, SaidBuf, WriteState,
     PRESTAGE_TTL,
 };
 use crate::demo::DemoState;
@@ -967,7 +967,8 @@ fn par_drops(ctx: &JobCtx, creds: &Option<Creds>, term_row: u32, nums: &[String]
                     if !ctx.demo {
                         std::thread::sleep(Duration::from_millis(800 * i as u64));
                     }
-                    let mut hst = lab_state(be, ctx.said.clone());
+                    let worker_said = Arc::new(Mutex::new(Vec::new()));
+                    let mut hst = lab_state(be, Some(worker_said));
                     let mut out = json!({});
                     for _ in 0..2 {
                         out = match drop_bulk(&mut hst, term_row, std::slice::from_ref(n), stop, false, None) {
@@ -1005,7 +1006,8 @@ fn prestage_run(ctx: &JobCtx, creds: &Option<Creds>, picks: &[Pick], stop: &Atom
                     if !ctx.demo {
                         std::thread::sleep(Duration::from_millis(800 * i as u64));
                     }
-                    let mut hst = lab_state(be, ctx.said.clone());
+                    let worker_said = Arc::new(Mutex::new(Vec::new()));
+                    let mut hst = lab_state(be, Some(worker_said));
                     match prepare_enrol_stop(&mut hst, std::slice::from_ref(pick), stop) {
                         Ok(v) if v["blocked"] == "leftovers" => (
                             json!({ "course": pick.course, "status": "blocked", "detail": { "alreadyChosen": v["leftovers"] }, "ms": log::ms_since(t) }),
@@ -1060,14 +1062,15 @@ pub(super) fn confirmation_status(detail: &Value, course: &str) -> &'static str 
     }
 }
 
-fn fire_spawn(ctx: &JobCtx, held: Vec<Held>, stop: &Arc<AtomicBool>) {
+fn fire_spawn(ctx: &JobCtx, held: Vec<Held>, stop: &Arc<AtomicBool>) -> Vec<std::thread::JoinHandle<()>> {
+    let mut handles = Vec::with_capacity(held.len());
     for (idx, (course, tok, at, mut hst)) in held.into_iter().enumerate() {
         let stop = stop.clone();
         let fired = Arc::clone(&ctx.fired);
         if let Ok(mut f) = fired.lock() {
             f.push(json!({ "course": course, "status": "sending", "verifying": true }));
         }
-        std::thread::spawn(move || {
+        handles.push(std::thread::spawn(move || {
             let set = |v: Value| {
                 if let Ok(mut f) = fired.lock() {
                     if let Some(slot) = f.get_mut(idx) {
@@ -1096,8 +1099,9 @@ fn fire_spawn(ctx: &JobCtx, held: Vec<Held>, stop: &Arc<AtomicBool>) {
                 }
                 Err(e) => set(json!({ "course": course, "status": "failed", "detail": e.1, "verifying": false })),
             }
-        });
+        }));
     }
+    handles
 }
 
 pub fn apply_run(st: &mut WriteState, ctx: &JobCtx, creds: &Option<Creds>, req: &ApplyReq, stop: &Arc<AtomicBool>) -> Result<(), ApiErr> {
@@ -1308,7 +1312,7 @@ pub fn apply_run(st: &mut WriteState, ctx: &JobCtx, creds: &Option<Creds>, req: 
                 }
             }
             let names: Vec<String> = held.iter().map(|h| h.0.clone()).collect();
-            fire_spawn(ctx, held, stop);
+            let handles = fire_spawn(ctx, held, stop);
             let deadline = Instant::now() + Duration::from_secs(300);
             loop {
                 let snap = ctx.fired.lock().map(|f| f.clone()).unwrap_or_default();
@@ -1344,7 +1348,14 @@ pub fn apply_run(st: &mut WriteState, ctx: &JobCtx, creds: &Option<Creds>, req: 
                         ctx.item(&id, "error", &why);
                     }
                 }
-                if all_done || Instant::now() > deadline {
+                if all_done {
+                    for h in handles {
+                        let _ = h.join();
+                    }
+                    break;
+                }
+                if Instant::now() > deadline {
+                    stop.store(true, Ordering::SeqCst);
                     break;
                 }
                 std::thread::sleep(Duration::from_millis(if ctx.demo { 20 } else { 500 }));
@@ -1456,11 +1467,19 @@ pub async fn apply_start(State(app): State<App>, Json(req): Json<ApplyReq>) -> R
             if !demo {
                 apply_recount(st, &req)?;
             }
-            apply_run(st, &ctx_inner, &creds, &req, &stop)
+            let res = apply_run(st, &ctx_inner, &creds, &req, &stop);
+            st.disarm();
+            res
         })
         .await;
         settle_job(&ctx, &r);
-        disarm_now(&a);
+        a.stop.store(true, Ordering::SeqCst);
+        if let Ok(mut s) = a.snap.lock() {
+            s.armed = false;
+        }
+        if let Ok(mut p) = a.prestaged.lock() {
+            p.clear();
+        }
     });
     Ok(Json(json!({ "started": true })))
 }

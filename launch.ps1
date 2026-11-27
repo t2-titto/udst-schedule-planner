@@ -5,7 +5,7 @@
 # Run from any shell:  cmd /c "%LOCALAPPDATA%\udst-schedule-planner\Start-UDST-Planner.bat"
 param([switch]$SetupOnly)
 $ErrorActionPreference = "Stop"
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
 $AppDir     = Split-Path -Parent $MyInvocation.MyCommand.Path
 $InstallDir = Split-Path -Parent $AppDir
@@ -31,13 +31,14 @@ function Ensure-Shortcuts {
             $needs = $true
             if (Test-Path $path) {
                 $s = $wsh.CreateShortcut($path)
-                if ($s.TargetPath -eq $Launcher -and $s.Hotkey -eq $Hotkey -and $s.WorkingDirectory -eq (Join-Path $AppDir "server")) {
+                if ($s.TargetPath -eq $Launcher -and -not $s.Arguments -and $s.Hotkey -eq $Hotkey -and $s.WorkingDirectory -eq (Join-Path $AppDir "server")) {
                     $needs = $false
                 }
             }
             if ($needs) {
                 $s = $wsh.CreateShortcut($path)
                 $s.TargetPath = $Launcher
+                $s.Arguments = ""
                 $s.WorkingDirectory = Join-Path $AppDir "server"
                 $s.Hotkey = $Hotkey
                 $s.Description = "UDST Schedule & Degree Planner ($Hotkey)"
@@ -50,16 +51,32 @@ function Ensure-Shortcuts {
     }
 }
 
+function Test-OwnedPlannerProc($proc) {
+    if (-not $proc) { return $false }
+    $path = $null
+    try { $path = $proc.Path } catch { return $false }
+    if (-not $path -or ($path -ne $Exe)) { return $false }
+    try {
+        $curSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+        $wmi = Get-CimInstance Win32_Process -Filter "ProcessId = $($proc.Id)" -ErrorAction Stop
+        $owner = Invoke-CimMethod -InputObject $wmi -MethodName GetOwnerSid -ErrorAction Stop
+        return ($owner.ReturnValue -eq 0 -and $owner.Sid -eq $curSid)
+    } catch {
+        return $false
+    }
+}
+
 function Stop-RunningPlanner {
     $procs = Get-Process -Name "schedule-planner-server" -ErrorAction SilentlyContinue
+    $stopped = $false
     foreach ($p in $procs) {
-        $path = $null; try { $path = $p.Path } catch {}
-        if (-not $path -or $path -eq $Exe) {
+        if (Test-OwnedPlannerProc $p) {
             Write-Host "  Stopping running server (PID $($p.Id)) to apply update..." -ForegroundColor Yellow
             Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+            $stopped = $true
         }
     }
-    if ($procs) { Start-Sleep -Seconds 1 }
+    if ($stopped) { Start-Sleep -Seconds 1 }
 }
 
 function Get-RemoteCommitInfo {
@@ -103,7 +120,7 @@ function Prompt-And-Update {
 
     $localShort = if ($local -and $local.Length -ge 7) { $local.Substring(0, 7) } else { "unknown" }
     $remoteShort = $info.Sha.Substring(0, 7)
-    $sigNote = if ($info.Verified) { "GitHub-verified commit" } else { "GitHub commit" }
+    $sigNote = if ($info.Verified) { "GitHub-verified signed commit" } else { "unsigned GitHub commit; SHA-256 manifest checked" }
     Write-Host ""
     Write-Host "  ============================================================" -ForegroundColor Yellow
     Write-Host "    UPDATE AVAILABLE FROM GITHUB ($sigNote)" -ForegroundColor White
@@ -111,20 +128,38 @@ function Prompt-And-Update {
     Write-Host "    Latest    : $remoteShort  --  $($info.Message)" -ForegroundColor Cyan
     Write-Host "  ============================================================" -ForegroundColor Yellow
     Write-Host ""
-    $ans = Read-Host "  Do you want to update from GitHub and rebuild now? [Y/n]"
-    if ($ans -and ($ans.Trim() -notmatch "^(y|yes)$")) {
+    $ans = Read-Host "  Do you want to update from GitHub and rebuild now? [y/N]"
+    if (-not $ans -or ($ans.Trim() -notmatch "^(y|yes)$")) {
         Write-Host "  Update skipped. Launching currently installed version..." -ForegroundColor Gray
         return
     }
 
     Stop-RunningPlanner
-    Write-Host "  Downloading commit $remoteShort from GitHub and rebuilding..." -ForegroundColor Cyan
+    Write-Host "  Downloading verified updater for commit $remoteShort from GitHub..." -ForegroundColor Cyan
+    $updStage = Join-Path $InstallDir ("upd-" + [guid]::NewGuid().ToString("N"))
     try {
+        New-Item -ItemType Directory -Force -Path $updStage | Out-Null
+        $manifestPath = Join-Path $updStage "CHECKSUMS.sha256"
+        $instPath     = Join-Path $updStage "install.ps1"
+        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/$Repo/$($info.Sha)/CHECKSUMS.sha256" -OutFile $manifestPath -UseBasicParsing
+        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/$Repo/$($info.Sha)/install.ps1" -OutFile $instPath -UseBasicParsing
+        $expectedInstHash = $null
+        foreach ($line in (Get-Content -Path $manifestPath -Encoding ASCII)) {
+            if ($line -match "^\s*([0-9a-fA-F]{64})\s+\*?install\.ps1\s*$") {
+                $expectedInstHash = $Matches[1].ToLowerInvariant()
+                break
+            }
+        }
+        if (-not $expectedInstHash) { throw "Missing install.ps1 entry in commit CHECKSUMS.sha256." }
+        $actualInstHash = (Get-FileHash -Path $instPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($actualInstHash -ne $expectedInstHash) {
+            throw "install.ps1 SHA-256 mismatch (expected $expectedInstHash, got $actualInstHash)."
+        }
+
         $env:UDST_UPDATE = "1"
         $env:UDST_NO_LAUNCH = "1"
         $env:UDST_TARGET_SHA = $info.Sha
-        $instUrl = "https://raw.githubusercontent.com/$Repo/$($info.Sha)/install.ps1"
-        & powershell -NoProfile -ExecutionPolicy Bypass -Command "irm '$instUrl' | iex"
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $instPath
         if ($LASTEXITCODE -ne 0) {
             Write-Host "  [WARN] Update failed (exit $LASTEXITCODE); starting the installed version." -ForegroundColor Yellow
         } else {
@@ -133,6 +168,7 @@ function Prompt-And-Update {
     } catch {
         Write-Host "  [WARN] Update failed ($($_.Exception.Message)); starting the installed version." -ForegroundColor Yellow
     } finally {
+        if (Test-Path $updStage) { Remove-Item -Recurse -Force $updStage -ErrorAction SilentlyContinue }
         Remove-Item Env:\UDST_UPDATE, Env:\UDST_NO_LAUNCH, Env:\UDST_TARGET_SHA -ErrorAction SilentlyContinue
     }
 }
@@ -171,9 +207,9 @@ for ($p = $Base; $p -lt $Base + 10; $p++) {
     if (Port-Busy $p) {
         $c = Get-Listener $p
         $proc = if ($c) { Get-Process -Id $c.OwningProcess -ErrorAction SilentlyContinue } else { $null }
-        if ($proc -and $proc.ProcessName -eq "schedule-planner-server") {
-            Write-Host "  Planner is already running on http://localhost:$p -- opening browser." -ForegroundColor Green
-            Start-Process "http://localhost:$p"
+        if (Test-OwnedPlannerProc $proc) {
+            Write-Host "  Planner is already running on http://127.0.0.1:$p -- opening browser." -ForegroundColor Green
+            Start-Process "http://127.0.0.1:$p"
             Start-Sleep -Seconds 2
             exit 0
         }
@@ -187,13 +223,13 @@ if (-not $port) {
     Pause-Exit 1
 }
 
-$Host.UI.RawUI.WindowTitle = "UDST Schedule Planner (http://localhost:$port)"
+$Host.UI.RawUI.WindowTitle = "UDST Schedule Planner (http://127.0.0.1:$port)"
 Write-Host ""
-Write-Host "  UDST Schedule & Degree Planner is running at  http://localhost:$port" -ForegroundColor Cyan
+Write-Host "  UDST Schedule & Degree Planner is running at  http://127.0.0.1:$port" -ForegroundColor Cyan
 Write-Host "  Keep this window open. Press Ctrl+C or close it to stop." -ForegroundColor Gray
 Write-Host ""
 $env:PORT = "$port"
 Set-Location (Join-Path $AppDir "server")
-Start-Process "http://localhost:$port"
+Start-Process "http://127.0.0.1:$port"
 & $Exe
 if ($LASTEXITCODE -ne 0) { Write-Host "  Server exited with code $LASTEXITCODE" -ForegroundColor Red; Pause-Exit $LASTEXITCODE }
